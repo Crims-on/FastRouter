@@ -139,6 +139,7 @@ async fn env() -> Env {
             .route("/v1/chat/completions", post(openai_chat))
             .route("/v1/messages", post(anthropic_messages))
             .route("/v1/responses", post(responses))
+            .route("/v1/models", axum::routing::get(|| async { axum::Json(json!({"object": "list", "data": [{"id": "m-1", "object": "model"}]})) }))
             .route("/v1beta/models/{p}", post(gemini))
             .route("/v1/embeddings", post(|b: axum::Json<Value>| async move { axum::Json(json!({"object": "list", "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2]}], "model": b["model"], "usage": {"prompt_tokens": 3, "total_tokens": 3}})) }))
             .route("/v1/images/generations", post(|b: axum::Json<Value>| async move { axum::Json(json!({"created": 1, "data": [{"b64_json": "aGVsbG8=", "revised_prompt": b["prompt"]}]})) }))
@@ -330,4 +331,48 @@ async fn media_endpoints_via_custom_node() {
     assert_eq!(s, 400, "{t}");
     let r = reqwest::get(format!("{}/v1/models/embedding", e.base)).await.unwrap().text().await.unwrap();
     assert!(r.contains("\"object\":\"list\""), "{r}");
+}
+
+#[tokio::test]
+async fn dashboard_flow() {
+    let e = env().await;
+    crate::auth::bootstrap(&e.db, "pw123456").unwrap();
+    let c = reqwest::Client::builder().cookie_store(true).redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    // Unauthenticated → login.
+    let r = c.get(format!("{}/dashboard", e.base)).send().await.unwrap();
+    assert_eq!(r.status().as_u16(), 303);
+    let r = c.post(format!("{}/login", e.base)).form(&[("password", "pw123456")]).send().await.unwrap();
+    assert_eq!(r.status().as_u16(), 303);
+    for p in ["/dashboard", "/dashboard/providers", "/dashboard/providers/claude", "/dashboard/providers/kiro", "/dashboard/combos", "/dashboard/models", "/dashboard/keys", "/dashboard/usage", "/dashboard/settings"] {
+        let r = c.get(format!("{}{p}", e.base)).send().await.unwrap();
+        assert_eq!(r.status().as_u16(), 200, "{p}");
+    }
+    // Create a custom node from the UI and chat through it.
+    let r = c.post(format!("{}/dashboard/providers/new-node", e.base)).form(&[("ty", "openai-compatible"), ("prefix", "zz"), ("base_url", &format!("{}/v1", e.up)), ("api_key", "good")]).send().await.unwrap();
+    let loc = r.headers()["location"].to_str().unwrap().to_string();
+    assert!(loc.contains("ok="), "{loc}");
+    let id = e.db.list_nodes(None).into_iter().find(|n| n["prefix"] == "zz").unwrap()["id"].as_str().unwrap().to_string();
+    let conn = e.db.connections_for(&id, false)[0]["id"].as_str().unwrap().to_string();
+    let r = c.post(format!("{}/dashboard/connections/{conn}/test", e.base)).form(&[("x", "1")]).send().await.unwrap();
+    let loc = crate::oauth::flows::pct_decode(r.headers()["location"].to_str().unwrap());
+    assert!(loc.contains("ok=") && loc.contains("m-1"), "{loc}");
+    let (st, body) = post_json(&format!("{}/v1/chat/completions", e.base), json!({"model": "zz/m-1", "messages": [{"role": "user", "content": "hey"}]})).await;
+    assert_eq!(st, 200, "{body}");
+    // Combo + alias via forms.
+    c.post(format!("{}/dashboard/combos", e.base)).form(&[("name", "dash"), ("models", "zz/m-1")]).send().await.unwrap();
+    c.post(format!("{}/dashboard/aliases", e.base)).form(&[("alias", "short"), ("target", "zz/m-1")]).send().await.unwrap();
+    for m in ["dash", "short"] {
+        let (st, body) = post_json(&format!("{}/v1/chat/completions", e.base), json!({"model": m, "messages": [{"role": "user", "content": "hey"}]})).await;
+        assert_eq!(st, 200, "{m}: {body}");
+    }
+    // OAuth: a browser login starts a pending flow; a forged state is rejected.
+    let r = c.post(format!("{}/dashboard/oauth/claude/start", e.base)).form(&[("x", "1")]).send().await.unwrap();
+    assert!(r.headers()["location"].to_str().unwrap().starts_with("/dashboard/oauth/flow/"));
+    let t = reqwest::get(format!("{}/callback?code=abc&state=forged", e.base)).await.unwrap().text().await.unwrap();
+    assert!(t.contains("No pending login"));
+    // Routing settings persist into the settings document.
+    c.post(format!("{}/dashboard/settings/routing", e.base)).form(&[("strategy", "round-robin"), ("combo_strategy", "round-robin"), ("sticky", "4")]).send().await.unwrap();
+    let st = crate::chat::accounts::settings(&e.db);
+    assert_eq!(st["fallbackStrategy"], "round-robin");
+    assert_eq!(st["stickyRoundRobinLimit"], 4);
 }

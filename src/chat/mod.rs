@@ -101,6 +101,11 @@ pub fn get_model_info(db: &Db, model_str: &str) -> Option<ModelInfo> {
         return Some(ModelInfo::Combo(model_str.to_string()));
     }
     let aliases = db.model_aliases();
+    // An alias pointing at "prefix/model" resolves like that string (so custom
+    // node prefixes work too).
+    if let Some(target) = aliases.get(model_str).and_then(|v| v.as_str()).filter(|t| t.contains('/') && *t != model_str) {
+        return get_model_info(db, target);
+    }
     if let Some((p, m)) = aliases.get(model_str).and_then(resolve_alias_target) {
         return Some(ModelInfo::Provider { provider: p, model: m });
     }

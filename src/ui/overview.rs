@@ -17,7 +17,7 @@ pub async fn page(
     let db = &state.db;
     let day = db.totals_since(now() - 86_400);
     let conns = db.list_connections();
-    let active = conns.iter().filter(|c| c.enabled).count();
+    let active = conns.iter().filter(|c| c["isActive"] != serde_json::json!(false)).count();
     let combos = db.list_combos();
     let hist = db.histogram(24, 3600);
     let recent = db.recent_usage(8, 0);
@@ -30,11 +30,11 @@ pub async fn page(
     let example_model = combos
         .first()
         .map(|c| c.name.clone())
-        .or_else(|| {
-            crate::router::available_models(db)
+        .or({
+            crate::api::models::build_models_list(db, &["llm"], true)
+                .await
                 .into_iter()
-                .map(|m| m.0)
-                .next()
+                .find_map(|m| m["id"].as_str().map(str::to_owned))
         })
         .unwrap_or_else(|| "openrouter/openai/gpt-5".into());
     let needs_key = crate::auth::api_key_required(&state);

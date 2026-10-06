@@ -23,6 +23,7 @@ mod secrets;
 mod session;
 mod sse;
 mod translate;
+mod ui;
 
 #[cfg(test)]
 mod e2e_tests;
@@ -39,7 +40,8 @@ pub struct AppState {
 }
 
 pub fn app(state: AppState) -> Router {
-    Router::new().merge(api::routes()).layer(TraceLayer::new_for_http()).with_state(state)
+    let dashboard = ui::routes().route_layer(axum::middleware::from_fn_with_state(state.clone(), auth::require_session));
+    Router::new().merge(api::routes()).merge(dashboard).merge(ui::public_routes()).layer(TraceLayer::new_for_http()).with_state(state)
 }
 
 #[tokio::main]

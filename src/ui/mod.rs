@@ -3,6 +3,7 @@
 
 mod combos;
 mod keys;
+mod oauth;
 mod overview;
 mod providers;
 mod settings;
@@ -23,47 +24,43 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/dashboard", get(overview::page))
         .route("/dashboard/providers", get(providers::list))
+        .route("/dashboard/providers/new-node", post(providers::create_node))
         .route("/dashboard/providers/{id}", get(providers::detail))
-        .route(
-            "/dashboard/providers/{id}/connections",
-            post(providers::create),
-        )
-        .route(
-            "/dashboard/connections/{id}/update",
-            post(providers::update),
-        )
-        .route(
-            "/dashboard/connections/{id}/toggle",
-            post(providers::toggle),
-        )
-        .route(
-            "/dashboard/connections/{id}/delete",
-            post(providers::delete),
-        )
+        .route("/dashboard/providers/{id}/connections", post(providers::create))
+        .route("/dashboard/providers/{id}/import/{method}", post(providers::import))
+        .route("/dashboard/providers/{id}/custom-models", post(providers::save_custom_models))
+        .route("/dashboard/providers/{id}/node", post(providers::update_node))
+        .route("/dashboard/providers/{id}/node/delete", post(providers::delete_node))
+        .route("/dashboard/connections/{id}/update", post(providers::update))
+        .route("/dashboard/connections/{id}/toggle", post(providers::toggle))
+        .route("/dashboard/connections/{id}/delete", post(providers::delete))
         .route("/dashboard/connections/{id}/test", post(providers::test))
-        .route(
-            "/dashboard/connections/{id}/models",
-            post(providers::refresh_models),
-        )
+        .route("/dashboard/connections/{id}/refresh", post(providers::refresh))
+        .route("/dashboard/connections/{id}/unlock", post(providers::unlock))
+        .route("/dashboard/oauth/{provider}/start", post(oauth::start))
+        .route("/dashboard/oauth/{provider}/device", post(oauth::device_start))
+        .route("/dashboard/oauth/flow/{state}", get(oauth::flow_page).post(oauth::flow_submit))
+        .route("/dashboard/oauth/device/{id}", get(oauth::device_page))
         .route("/dashboard/combos", get(combos::page).post(combos::save))
         .route("/dashboard/combos/{name}/delete", post(combos::delete))
         .route("/dashboard/models", get(combos::models_page))
+        .route("/dashboard/aliases", post(combos::save_alias))
+        .route("/dashboard/aliases/{alias}/delete", post(combos::delete_alias))
         .route("/dashboard/keys", get(keys::page).post(keys::create))
         .route("/dashboard/keys/{id}/delete", post(keys::delete))
         .route("/dashboard/keys/require", post(keys::toggle_require))
         .route("/dashboard/usage", get(usage::page))
         .route("/dashboard/usage/clear", post(usage::clear))
         .route("/dashboard/settings", get(settings::page))
-        .route(
-            "/dashboard/settings/password",
-            post(settings::change_password),
-        )
+        .route("/dashboard/settings/password", post(settings::change_password))
         .route("/dashboard/settings/routing", post(settings::save_routing))
+        .route("/dashboard/settings/oauth-clients", post(settings::save_oauth_clients))
 }
 
 pub fn public_routes() -> Router<AppState> {
     Router::new()
-        .route("/", get(|| async { Redirect::to("/dashboard") }))
+        .route("/", get(oauth::root))
+        .route("/callback", get(oauth::callback))
         .route("/login", get(settings::login_page).post(settings::login))
         .route("/logout", post(settings::logout))
         .route("/static/app.css", get(css))

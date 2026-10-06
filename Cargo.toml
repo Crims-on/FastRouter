@@ -23,7 +23,7 @@ hmac = "0.13.0"
 maud = { version = "0.27.0", features = ["axum"] }
 md-5 = "0.10"
 regex = "1.13.1"
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream", "json", "http2", "system-proxy", "gzip", "brotli", "zstd", "deflate", "multipart", "form"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream", "json", "http2", "system-proxy", "gzip", "brotli", "zstd", "deflate", "multipart", "form", "cookies"] }
 rsa = { version = "0.9", features = ["sha2"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }

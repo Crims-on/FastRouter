@@ -83,26 +83,35 @@ pub async fn logout(jar: CookieJar) -> Response {
 }
 
 pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> Markup {
-    let strategy = state
-        .db
-        .get_setting("strategy")
-        .unwrap_or_else(|| "fallback".into());
+    let st = crate::chat::accounts::settings(&state.db);
+    let strategy = st["fallbackStrategy"].as_str().unwrap_or("fill-first").to_string();
+    let combo_strategy = st["comboStrategy"].as_str().unwrap_or("fallback").to_string();
+    let sticky = st["stickyRoundRobinLimit"].as_i64().unwrap_or(3);
+    let combo_sticky = st["comboStickyRoundRobinLimit"].as_i64().unwrap_or(1);
+    let cc_filter = st["ccFilterNaming"] == serde_json::json!(true);
+    let clients = state.db.setting_json("oauthClients");
     let cfg = &state.config;
     let body = html! {
         (page_head("Settings", "Routing behaviour and dashboard access.", html! {}))
         div.grid.g2 {
             div.card {
-                h2 { "Routing strategy" }
-                p.small.muted { "How FastRouter picks between multiple connections that share a prefix (e.g. several accounts of the same provider)." }
+                h2 { "Routing" }
                 form method="post" action="/dashboard/settings/routing" {
                     div.stack {
-                        label.check { input type="radio" name="strategy" value="fallback" checked[strategy == "fallback"]; "Fallback — always try by priority order" }
-                        label.check { input type="radio" name="strategy" value="round-robin" checked[strategy == "round-robin"]; "Round-robin — spread load across connections" }
+                        p.small.muted { "Accounts of the same provider:" }
+                        label.check { input type="radio" name="strategy" value="fill-first" checked[strategy != "round-robin"]; "Fill first — use the highest-priority account until it is rate-limited" }
+                        label.check { input type="radio" name="strategy" value="round-robin" checked[strategy == "round-robin"]; "Round-robin — spread load across accounts" }
+                        div { label { "Sticky requests per account (round-robin)" } input type="number" name="sticky" min="1" value=(sticky); }
+                        p.small.muted { "Combos:" }
+                        label.check { input type="radio" name="combo_strategy" value="fallback" checked[combo_strategy != "round-robin"]; "Fallback — always try models in order" }
+                        label.check { input type="radio" name="combo_strategy" value="round-robin" checked[combo_strategy == "round-robin"]; "Round-robin — rotate the starting model" }
+                        div { label { "Sticky requests per combo model (round-robin)" } input type="number" name="combo_sticky" min="1" value=(combo_sticky); }
+                        label.check { input type="checkbox" name="cc_filter" value="1" checked[cc_filter]; "Skip Claude Code's title-generation / warm-up requests" }
                         div { button.btn.primary type="submit" { "Save" } }
                     }
                 }
                 p.small.muted style="margin-top:14px" {
-                    "Failed connections are cooled down automatically: 60s after a 429, 15s after a 5xx, 5 minutes after an auth error."
+                    "Failing accounts are cooled down per model with exponential backoff (2s → 5min); quota errors use the provider's reset time."
                 }
             }
             div.card {
@@ -114,6 +123,21 @@ pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> 
                         div { label for="confirm" { "Confirm new password" } input #confirm type="password" name="confirm" required minlength="6" autocomplete="new-password"; }
                         div { button.btn.primary type="submit" { "Change password" } }
                     }
+                }
+            }
+            div.card {
+                h2 { "Google OAuth clients" }
+                p.small.muted { "Gemini CLI and Antigravity logins need the public OAuth client of those tools. Set them here or via environment variables (" code { "GOOGLE_OAUTH_CLIENT_ID" } ", " code { "GOOGLE_OAUTH_CLIENT_SECRET" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_ID" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_SECRET" } "). Changes apply after a restart." }
+                form method="post" action="/dashboard/settings/oauth-clients" {
+                    div.form-grid {
+                        @for name in crate::secrets::NAMES {
+                            div.full {
+                                label { code { (name) } @if !crate::secrets::get(name).is_empty() { " " span.badge.ok { "set" } } }
+                                input type="text" name=(name) autocomplete="off" value=(clients[*name].as_str().unwrap_or(""));
+                            }
+                        }
+                    }
+                    div style="margin-top:10px" { button.btn.primary type="submit" { "Save" } }
                 }
             }
             div.card {
@@ -162,16 +186,35 @@ pub async fn change_password(
 #[derive(Deserialize)]
 pub struct RoutingForm {
     strategy: String,
+    combo_strategy: String,
+    sticky: Option<String>,
+    combo_sticky: Option<String>,
+    cc_filter: Option<String>,
 }
 
 pub async fn save_routing(State(state): State<AppState>, Form(f): Form<RoutingForm>) -> Response {
-    let s = if f.strategy == "round-robin" {
-        "round-robin"
-    } else {
-        "fallback"
-    };
-    match state.db.set_setting("strategy", s) {
-        Ok(()) => redirect_ok("/dashboard/settings", "Routing strategy saved"),
+    let mut st = crate::chat::accounts::settings(&state.db);
+    let num = |v: &Option<String>, d: i64| v.as_deref().and_then(|s| s.trim().parse::<i64>().ok()).filter(|n| *n >= 1).unwrap_or(d);
+    st["fallbackStrategy"] = serde_json::json!(if f.strategy == "round-robin" { "round-robin" } else { "fill-first" });
+    st["comboStrategy"] = serde_json::json!(if f.combo_strategy == "round-robin" { "round-robin" } else { "fallback" });
+    st["stickyRoundRobinLimit"] = serde_json::json!(num(&f.sticky, 3));
+    st["comboStickyRoundRobinLimit"] = serde_json::json!(num(&f.combo_sticky, 1));
+    st["ccFilterNaming"] = serde_json::json!(f.cc_filter.is_some());
+    match state.db.set_setting_json("settings", &st) {
+        Ok(()) => redirect_ok("/dashboard/settings", "Routing settings saved"),
+        Err(e) => redirect_err("/dashboard/settings", &e.to_string()),
+    }
+}
+
+pub async fn save_oauth_clients(State(state): State<AppState>, Form(f): Form<std::collections::HashMap<String, String>>) -> Response {
+    let mut m = serde_json::Map::new();
+    for name in crate::secrets::NAMES {
+        if let Some(v) = f.get(*name).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            m.insert((*name).to_string(), serde_json::json!(v));
+        }
+    }
+    match state.db.set_setting_json("oauthClients", &serde_json::Value::Object(m)) {
+        Ok(()) => redirect_ok("/dashboard/settings", "OAuth clients saved — restart FastRouter to apply"),
         Err(e) => redirect_err("/dashboard/settings", &e.to_string()),
     }
 }
