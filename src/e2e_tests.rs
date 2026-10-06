@@ -376,3 +376,82 @@ async fn dashboard_flow() {
     assert_eq!(st["fallbackStrategy"], "round-robin");
     assert_eq!(st["stickyRoundRobinLimit"], 4);
 }
+
+/// Every chat-capable registry provider builds a well-formed upstream request.
+#[test]
+fn every_provider_builds_requests() {
+    use crate::registry::REG;
+    let creds = json!({"apiKey": "k-123", "accessToken": "t-123", "refreshToken": "r", "copilotToken": "c", "providerSpecificData": {"projectId": "p", "region": "us-east-1", "accountId": "acc", "resourceName": "res", "deployment": "dep", "machineId": "m", "userId": "u", "systemId": "s", "profileArn": "arn:aws:codewhisperer:us-east-1:1:profile/x", "cookie": "a=b"}});
+    let mut failures = vec![];
+    let mut checked = 0;
+    for e in &REG.entries {
+        let id = e["id"].as_str().unwrap().to_string();
+        if !crate::api::models::provider_kinds(&id).iter().any(|k| k == "llm") {
+            continue;
+        }
+        let model = REG.models_by_provider_id(&id).iter().find(|m| m["kind"].is_null() && m["type"].is_null()).and_then(|m| m["id"].as_str()).unwrap_or("test-model").to_string();
+        let ex = crate::providers::get_executor(&id);
+        let body = json!({"model": model, "messages": [{"role": "user", "content": "hi"}], "stream": true});
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let url = ex.build_url(&model, true, 0, &creds)?;
+            let parsed = reqwest::Url::parse(&url).map_err(|e| format!("bad url {url}: {e}"))?;
+            if !matches!(parsed.scheme(), "http" | "https" | "wss") {
+                return Err(format!("scheme {url}"));
+            }
+            let out = ex.transform_request(&model, body.clone(), true, &creds);
+            let h = ex.build_headers(&creds, true, &url, &model, &out);
+            let has_auth = h.0.iter().any(|(k, v)| {
+                let k = k.to_ascii_lowercase();
+                (k.contains("auth") || k.contains("key") || k.contains("token") || k == "cookie") && !v.is_empty()
+            }) || url.contains("key=");
+            if !ex.no_auth() && !has_auth {
+                return Err(format!("no auth header for {url}: {:?}", h.0));
+            }
+            Ok::<_, String>(())
+        }));
+        checked += 1;
+        match r {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => failures.push(format!("{id}: {e}")),
+            Err(_) => failures.push(format!("{id}: panicked")),
+        }
+    }
+    assert!(checked > 80, "only {checked} providers checked");
+    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+}
+
+/// Every declared media service kind has an adapter behind it.
+#[test]
+fn every_media_kind_has_adapter() {
+    use crate::mediaapi::*;
+    use crate::registry::REG;
+    let mut failures = vec![];
+    for e in &REG.entries {
+        let id = e["id"].as_str().unwrap();
+        // 9router lists Topaz (an upscaling API) without any request adapter.
+        if id == "topaz" {
+            continue;
+        }
+        for k in crate::api::models::provider_kinds(id) {
+            let ok = match k.as_str() {
+                "llm" | "imageToText" => true,
+                "embedding" => embeddings::adapter(id).is_some(),
+                "image" => images::kind(id).is_some(),
+                "tts" => tts::supports(id),
+                "stt" => !stt::stt_cfg(id).is_null(),
+                "video" => video::video_cfg(id).is_some(),
+                "webSearch" => media_cfg(id, "searchConfig").is_object() || media_cfg(id, "searchViaChat").is_object(),
+                "webFetch" => media_cfg(id, "fetchConfig").is_object(),
+                "systemone" => media_cfg(id, "systemoneConfig")["baseUrl"].is_string(),
+                other => {
+                    failures.push(format!("{id}: unknown kind {other}"));
+                    continue;
+                }
+            };
+            if !ok {
+                failures.push(format!("{id}: {k}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

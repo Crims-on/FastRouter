@@ -18,7 +18,7 @@ use crate::chat::accounts::{self, Selection};
 const DEFAULT_PROVIDER: &str = "xai";
 const B64URL: base64::engine::GeneralPurpose = base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
-fn video_cfg(p: &str) -> Option<Value> {
+pub(crate) fn video_cfg(p: &str) -> Option<Value> {
     Some(media_cfg(p, "videoConfig")).filter(|v| v.is_object())
 }
 

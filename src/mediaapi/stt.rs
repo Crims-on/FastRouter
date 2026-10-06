@@ -27,7 +27,7 @@ impl Form {
     }
 }
 
-fn stt_cfg(p: &str) -> Value {
+pub(crate) fn stt_cfg(p: &str) -> Value {
     media_cfg(p, "sttConfig")
 }
 

@@ -172,7 +172,7 @@ pub async fn build_models_list(db: &Db, kinds: &[&str], skip_dynamic: bool) -> V
     // Free no-auth providers are usable without a connection.
     for e in &REG.entries {
         let id = e["id"].as_str().unwrap_or("");
-        if accounts::is_free_no_auth(id) && seen_p.insert(id.to_string()) {
+        if e["hidden"] != json!(true) && accounts::is_free_no_auth(id) && seen_p.insert(id.to_string()) {
             first_conn.push((id.to_string(), json!({"provider": id, "providerSpecificData": {}})));
         }
     }

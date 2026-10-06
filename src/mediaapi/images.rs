@@ -21,7 +21,7 @@ const POLL_TIMEOUT: Duration = Duration::from_secs(120);
 const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 #[derive(Clone, Copy, PartialEq)]
-enum Kind {
+pub(crate) enum Kind {
     OpenAi,
     Gemini,
     Codex,
@@ -37,7 +37,7 @@ enum Kind {
     Cloudflare,
 }
 
-fn kind(provider: &str) -> Option<Kind> {
+pub(crate) fn kind(provider: &str) -> Option<Kind> {
     Some(match provider {
         "gemini" => Kind::Gemini,
         "codex" => Kind::Codex,

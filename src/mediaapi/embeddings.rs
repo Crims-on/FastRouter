@@ -10,7 +10,7 @@ use super::*;
 use crate::AppState;
 use crate::exec::is_openai_compatible;
 
-enum Adapter {
+pub(crate) enum Adapter {
     OpenAi(String),
     Gemini,
     Node,
@@ -19,7 +19,7 @@ enum Adapter {
 
 const OPENAI_COMPAT: &[&str] = &["openai", "openrouter", "mistral", "voyage-ai", "fireworks", "together", "nebius", "github", "nvidia", "jina-ai", "vercel-ai-gateway"];
 
-fn adapter(provider: &str) -> Option<Adapter> {
+pub(crate) fn adapter(provider: &str) -> Option<Adapter> {
     match provider {
         "gemini" | "google_ai_studio" => Some(Adapter::Gemini),
         "selfhosted-embedding" => Some(Adapter::SelfHosted),

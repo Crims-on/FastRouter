@@ -867,3 +867,8 @@ mod tests {
         assert!(h[2].1.starts_with("AWS4-HMAC-SHA256 Credential=AKID/20250101/us-east-1/polly/aws4_request"));
     }
 }
+
+/// Whether `synthesize` has an adapter for this provider.
+pub(crate) fn supports(p: &str) -> bool {
+    matches!(p, "google-tts" | "edge-tts" | "local-device" | "elevenlabs" | "openai" | "openrouter" | "gemini" | "xiaomi-mimo" | "selfhosted-tts" | "aws-polly") || crate::exec::is_openai_compatible(p) || tts_cfg(p)["format"].is_string()
+}
