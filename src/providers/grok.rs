@@ -693,3 +693,11 @@ mod tests {
         assert_eq!(flatten_messages(m.as_array().unwrap()), "system: s\n\nuser: a\n\nassistant: b\n\nc");
     }
 }
+
+pub fn pager_user_agent() -> &'static str {
+    crate::consts::s("GROK_CLI_PAGER_USER_AGENT")
+}
+
+pub fn cli_version() -> &'static str {
+    crate::consts::s("GROK_CLI_VERSION")
+}

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 aes = "0.8"
+aes-gcm = "0.10"
 anyhow = "1.0.104"
 argon2 = "0.6.0"
 async-stream = "0.3.6"
@@ -36,3 +37,4 @@ tower-http = { version = "0.7.1", features = ["compression-gzip", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1.27.0", features = ["v4", "v5"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }

@@ -2522,3 +2522,29 @@ mod tests {
         assert_eq!(out[1]["content_block"]["name"], "mcp__a__b");
     }
 }
+
+/// listAvailableApiKeyModels — validates a Kiro/Amazon Q API key.
+pub async fn list_api_key_models(api_key: &str, region: &str) -> Result<Vec<Value>, String> {
+    if !regex::Regex::new(r"^[a-z]{2}-[a-z]+-\d{1,2}$").unwrap().is_match(region) {
+        return Err("Invalid region".into());
+    }
+    let r = crate::exec::http_client(None)
+        .get(format!("https://q.{region}.amazonaws.com/ListAvailableModels?origin=AI_EDITOR"))
+        .bearer_auth(api_key)
+        .header("TokenType", "API_KEY")
+        .header("Accept", "application/json")
+        .header("User-Agent", "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0")
+        .header("X-Amz-User-Agent", "aws-sdk-js/3.0.0 kiro-ide/1.0.0")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !r.status().is_success() {
+        return Err(format!("Failed to list API-key models: {}", r.text().await.unwrap_or_default()));
+    }
+    let d: Value = r.json().await.map_err(|e| e.to_string())?;
+    let m = d["models"].as_array().cloned().unwrap_or_default();
+    if m.is_empty() {
+        return Err("API key returned no available models".into());
+    }
+    Ok(m)
+}
