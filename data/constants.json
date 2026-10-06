@@ -1,0 +1,238 @@
+{
+ "AG_DEFAULT_TOOLS": [
+  "browser_subagent",
+  "command_status",
+  "find_by_name",
+  "generate_image",
+  "grep_search",
+  "list_dir",
+  "list_resources",
+  "multi_replace_file_content",
+  "notify_user",
+  "read_resource",
+  "read_terminal",
+  "read_url_content",
+  "replace_file_content",
+  "run_command",
+  "search_web",
+  "send_command_input",
+  "task_boundary",
+  "view_content_chunk",
+  "view_file",
+  "write_to_file"
+ ],
+ "AG_TOOL_SUFFIX": "_ide",
+ "ANTIGRAVITY_DEFAULT_SYSTEM": "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**",
+ "ANTIGRAVITY_HEADERS": {
+  "User-Agent": "antigravity/ide/2.11.0 darwin/arm64"
+ },
+ "ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS": {
+  "Content-Type": "application/json",
+  "User-Agent": "antigravity/ide/2.11.0 darwin/arm64"
+ },
+ "ANTIGRAVITY_PROMPT_REWRITES": [
+  {
+   "from": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+   "to": ""
+  },
+  {
+   "from": {
+    "$regex": "You are Hermes(?: Agent)?(?:,\\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\\s*(?:built|created)\\s+by\\s+Nous Research)?\\.",
+    "flags": "gi"
+   },
+   "to": "You are an AI assistant."
+  },
+  {
+   "from": {
+    "$regex": "^x-anthropic-billing-header:[^\\n]*(?:\\r?\\n)*",
+    "flags": "gim"
+   },
+   "to": ""
+  },
+  {
+   "from": {
+    "$regex": "opencode",
+    "flags": "gi"
+   }
+  }
+ ],
+ "CC_DEFAULT_TOOLS": [
+  "Task",
+  "TaskOutput",
+  "TaskStop",
+  "TaskCreate",
+  "TaskGet",
+  "TaskUpdate",
+  "TaskList",
+  "Bash",
+  "Glob",
+  "Grep",
+  "Read",
+  "Edit",
+  "Write",
+  "NotebookEdit",
+  "WebFetch",
+  "WebSearch",
+  "AskUserQuestion",
+  "Skill",
+  "EnterPlanMode",
+  "ExitPlanMode"
+ ],
+ "CLAUDE_SYSTEM_PROMPT": "You are Claude Code, Anthropic's official CLI for Claude.",
+ "CLAUDE_TOOL_SUFFIX": "_ide",
+ "CLIENT_METADATA": {
+  "ideType": 9,
+  "platform": 3,
+  "pluginType": 2
+ },
+ "CLOUD_CODE_API": {
+  "gemini-cli": {
+   "loadCodeAssist": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+   "onboardUser": "https://cloudcode-pa.googleapis.com/v1internal:onboardUser"
+  },
+  "antigravity": {
+   "loadCodeAssist": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+   "onboardUser": "https://cloudcode-pa.googleapis.com/v1internal:onboardUser"
+  }
+ },
+ "CODEX_CLI_VERSION": "0.159.0",
+ "GEMINI_CLI_API_CLIENT": "google-genai-sdk/1.41.0 gl-node/v22.19.0",
+ "GEMINI_CLI_VERSION": "0.34.0",
+ "GITHUB_COPILOT": {
+  "VSCODE_VERSION": "1.110.0",
+  "COPILOT_CHAT_VERSION": "0.38.0",
+  "USER_AGENT": "GitHubCopilotChat/0.38.0",
+  "API_VERSION": "2025-04-01"
+ },
+ "IDE_TYPE": {
+  "UNSPECIFIED": 0,
+  "JETSKI": 10,
+  "ANTIGRAVITY": 9,
+  "PLUGINS": 7
+ },
+ "INTERNAL_REQUEST_HEADER": {
+  "name": "x-request-source",
+  "value": "local"
+ },
+ "LOAD_CODE_ASSIST_HEADERS": {
+  "Content-Type": "application/json",
+  "User-Agent": "google-api-nodejs-client/9.15.1",
+  "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+  "Client-Metadata": "{\"ideType\":9,\"platform\":3,\"pluginType\":2}"
+ },
+ "LOAD_CODE_ASSIST_METADATA": {
+  "ideType": 9,
+  "platform": 3,
+  "pluginType": 2
+ },
+ "OAUTH_ENDPOINTS": {
+  "google": {
+   "token": "https://oauth2.googleapis.com/token",
+   "auth": "https://accounts.google.com/o/oauth2/auth"
+  },
+  "openai": {
+   "token": "https://auth.openai.com/oauth/token",
+   "auth": "https://auth.openai.com/oauth/authorize"
+  },
+  "anthropic": {
+   "token": "https://api.anthropic.com/v1/oauth/token",
+   "auth": "https://api.anthropic.com/v1/oauth/authorize"
+  },
+  "iflow": {
+   "token": "https://iflow.cn/oauth/token",
+   "auth": "https://iflow.cn/oauth"
+  },
+  "github": {
+   "token": "https://github.com/login/oauth/access_token",
+   "auth": "https://github.com/login/oauth/authorize",
+   "deviceCode": "https://github.com/login/device/code"
+  }
+ },
+ "PLATFORM": {
+  "UNSPECIFIED": 0,
+  "DARWIN_AMD64": 1,
+  "DARWIN_ARM64": 2,
+  "LINUX_AMD64": 3,
+  "LINUX_ARM64": 4,
+  "WINDOWS_AMD64": 5
+ },
+ "PLUGIN_TYPE": {
+  "UNSPECIFIED": 0,
+  "CLOUD_CODE": 1,
+  "GEMINI": 2
+ },
+ "REFRESH_LEAD_MS": {
+  "antigravity": 300000,
+  "claude": 14400000,
+  "codex": 600000,
+  "grok-cli": 300000,
+  "iflow": 86400000,
+  "kimi": 300000
+ },
+ "DEFAULT_THINKING_AG_SIGNATURE": "EuwGCukGAXLI2nxwZIq54WWSoL/YN0P3TsDZ7zRnLi8g0S4aVr2HUGxvaHKySuY6HAVzcE0GPGjXrytLIldxthSvfxgUlJh6Qa9Z+Oj5QZBlYdg6HaJ6yuY5R7waE6rdwBsRf7Ft2j3DJ9rMi9qhWFqApewYtPhls3VHtuvND3l8Rm09+lbAXQs6KKWEWrxNLKTBkfpMgXhRERc/TQRMZu1twAablm6/Zk1tsYRvfWKLsNbeKF+CCojJdXJKvnR/8Ouuoa+Y2Ti20hcW7aZIIjZDFYPU//k6Ybmhg69J/imbFai2ckhfLaisqdDkdoIiBJScTOUvYqP6AE9d4MsydSC+UlhIMk4hoP76R8vUSCZRMkjOaDXstf/QoVZKbt94wyRZgAJ1G0BqI8L5ow86kLpA4wJEtxsRGymOE4bKUvApveBakYDNM9APkf+LbtbzWSseGjoZcSlycF9iN8Q2XNYKRrHbv3Lr5Y8JjdH/5y/6SHkNehTEZugaeGnSPSyCTWto1kQgHpxdWmhkLfJGNUGLmue7Mesj4TSms4J33mRpYVhNB/J333FCqIP0hr/E7BkkjEn7yZ4X7SQlh+xKPurapsnHRwiKmtsilmEFrnTE9iQr+pMr6M29qqFNv1tr5yumbaJw8JW9sB15tNsRv+dW6BjNanbsKz7HCgKUBc8tGy+7YuhXzAfViyRefcjK7eZW0Fbyt7AbybJTKz78W8NH7ye6LAwzOebXpeZ4D43fNIt8bKh26qgduSQv/7o+pAflkuqHZ99YWgHQ8h8OkZFi3eOiSYjsjhdZ/czWOdoPI/OnqIldzMPF5YlrKBLFX8VhRKVmqgsmWf5PHGulHhMkVlS+XG2UIseGy69ARa93D78Gsa+1n1kJr7EEB7Rh+27vUMxVYLdz1yMSvE5nalTAlg/ZeG8+XQ0cHuAI3KbQpHW2Q++RdXfm5JzD5WdJZUU+Zn8t8UUn85BH4RxZLeE0qJikgSsKoYVBc6YhiMjhPgkR95ReimY4Z0xCJdRo1gjexOFeODZMpQF6Yxnoic7IrdgsFA3iePTbFnPp3IAM1fAThWhXJUn3QInUOTd5o1qmTmn6REbL15g/JQNl+dqUoPkhleeb2V3kjqp1okmO3wMZbPknR3S1LZNmlS72/iBQUm+n2b/RCn4PjmM2",
+ "DEFAULT_THINKING_CLAUDE_SIGNATURE": "EpwGCkYIChgCKkCzVUuRrg7CcglSUWEef4rH6o35g9UYS8ZPe0/VomQTBsFx6sttYNj5l8GqgW6ejuHyYqpFToxIbZl0bw17l5dJEgzCnqDO0Z8fRlMrNgsaDLS1cnCjC53KBqE0CCIwAADQdo1eO+7qPAmo8J4WR3JPmr92S97kmvr5K1iPMiOpkZNj8mEXW8uzBoOJs/9ZKoMFiqHJ3UObwaJDqFOW70E9oCwDoc6jesaWVAEdN5vWfKMpIkjFJjECdjIdkxyJNJ8Ib8yXVal3qwE7uThoPRqSZDdHB5mmwPEjWE/90cSYCbtX2YsJki1265CabBb8/QEkODXg4kgRrL+c8e8rRXz/dr1RswvaPuzEdGKHRNi9UooNUeOK4/ebx1KkP9YZttyohN9GWqlts36kOoW0Cfie/ABDgF9g534BPth/sstxDM6d79QlRmh6NxizyTF74DXJI34u0M4tTRchqE5pAq85SgdJaa+dix1yJPMji8m6nZkwJbscJb9rdc2MKyKWjz8QL2+rTSSuZ2F1k1qSsW0xNcI7qLcI12Vncfn/VqY6YOIZy/saZBR0ezXvN6g+UYbuIdyVg7AyIFZt3nbrO7/kmOEb2VKzygwklHGEIJHfFgMpH3JSrAzbZIowVHOF7VaJ+KXRFDCFin7hHTOiOsdg+1ij1mML9Z/x/9CP4b7OUcaQm1llDZPSHc6rZMNL3DdB+fW5YfmNgKU35S+7AMtA10nVILzDAk1UV4T2K9Do09JlI6rjOs9UuULlIN2Z0eE8YTlANR6uQcw7lMcdfqYE8tke4rDKc2dDiaS5vVe45VewICNpdXGN11yw8QqH7p27CR1HtN30e0tHXOR3bIwWk/Yb6O5fTaKG6Ri8e5ZCPvdD9HqepVi188nM0iTjJqL58F3ni04ECIhcbyaQWnuTes1Kw4CMwiZDLQkk8Hgz7HkUOf1btQTF/0nhD7ry0n0hAEg2PaDM3V6TjOjf4hEldRmeqERcQF1PfgKb6ZM12rlIIfUqKACczWJSzTV158+47HX36o0cgux6nFlv/DE+sEiRVxgB",
+ "DEFAULT_THINKING_GEMINI_CLI_SIGNATURE": "CiQBjz1rX/AlslZWMe5RgBt4Tv9j4+YNZTTez+JH2/+5oAlICygKXgGPPWtf7/Sux9eLYap/bmYAdPqFThLXj+l7o0DLu/hdgU98MA9ZrlRDNHXx+T0tuY8AcnjPZbiDyOq2bE11Fjhsk6p5axqayaapC/Pt9GczcgIQf1z15WTxCeKWAPYKYQGPPWtfDYj0nlNFNoTlU39RC91Z16xFKJ2MLEmkm+NvimsoOJ6be3g2BssNPtJ/9BKDXRA5cVs17tBeeW72lH8TMB5999udtxHM2SiUsnWsrHlfVuGSCpNQQ+5REw8HNvEKkgEBjz1rXzBNWrqZGbjun55K+vgYPBhJO2qZ67uRWXUA5/qcU12U/mbi5XoA3swoxYE8LEXfZvFFC9WG/W28QNCA0Qd4Trk/WkWiAwZmB8a84Fs14rkv3wqyxwFavPkJorqurAfd2XzGiFy0sB0ITCOPYi1HzDGV5WfXk6b9k+jT66/RuzGa8EcSOWo/QtC3Bkhgowo4AY89a1/f/tw8A02zjIoK7JVDAbf8W4UfmbApJJhwXIiGtu1M0JItObx7g2reYqT+HHL2Q/R4VDc=",
+ "DEFAULT_THINKING_TEXT": "...",
+ "DEFAULT_THINKING_VERTEX_SIGNATURE": "CloBjz1rX5+yg1ILh/Ag+suum5k1f/9m/hI0XDQ33lsQIYnOHLn9KZwN0C7E4jgep5MzZvz5Se1Z1xxYrA1+Iz0Il4tabBhaDfMKNa5dGdEA3KnikfjfIpMlPaAKaQGPPWtf2hodPdBgguiZqDn+Qz2LwGEqHVJ16LVBUpeSx7UnYBLSwio8cyNy0jPijOh5QXKLTeHVdO2tKKcCCrtG2JCW3dOSrW2qA8eyAg40iQUnMNECjbcjkqB1+zrab7jX9ILwg7L9OgqYAQGPPWtfT4nzaPzSkXePAa920abYxPs3fg/RHDlg8PUVFLa+ko6qOjt7nXJTMxN0cpCwUCFX7eHHcMnA6vApyA/rXvJiAABkHZ3HilAktXRtxr/thHU0H8/4H5gT3kzoQcq9aMznrKomd3ct0mFi0ioSKnOEfoY1Mrfj00p/ZWm0tT7Wrjcm3BQXZ+T9Vrb94k+6CjtcEBrGCq8BAY89a1/vTMczqwB1NP3HCCuBdnds2vDXkj6XAYaXjsjmik8tGqwMKHz8R9RAWsx6SO6pkGEpXXpRzAaUx6c+aofsL/z1xOcN7ArCAa6uEeQKEgNngZuCP05p4+9P95epVmgOjFa4KfsPnyg+NKUkEFmpPSDrIRyMT+xERlclVcCI98/u7i8a9+vTbgzl8TRFYryClNH37K1ye5i6kqSGDUcMyiEasjke5BxbUh3i6wqMAgGPPWtfk+A+iY38QAldu117FEkTIkzbYOIt67lk9c6Ou3Y3Ct8TFHFw5QwGfSFc0YWjeTFHdm9UdV5jPK35p6VfhiRSva3w2+JLIHb4jvv5HutZPOJ3yQTt/+hUDj80oMNMbwnxNZvCEdzKS+D9vwmTACAm5H0ZetBSH2gPJXnhhuQo9AegS3wIWVR2a5k643Vx9r4u4pOvij4476lxKswIHvqsjL4jnTzRCvd44G6dn7vD0ENGb1K/i+dMRQMcOBaOxPN0ynk9bKxXWRDbZ+Rhakfr+y74z+6eYCdRPVqO9I7s+riilFuRIfaQ+U6/vuVKGIWEVKCfZZi0z6H5Xgz1xmse0u0AsittDlIKxwEBjz1rX783A0vehvUeabRia+/pX46IsN5efTAxFEBUeUce3jLuXIghkMV2b8KNhUs2G0aZldDDewRQbkluQabBMDT82N5I7reJP0VZgLIKccCL5DoGv1J7YWM2npLMIgZ6aP8aSlT3PFFJ0IXbUZUrzduczmIm6nzAJf9zxmq1aIFYw8YrgW8RjUdy0UvUmRoBEShSGUrvsyaRTl7J//KJW5utIPunFMu53GPWLidCFHzM1QA3Cj1+4zv5UXajP/V92RQayWbzCvYBAY89a1+yzoVSWukUGH7kX71Tg9dx7HA7OyKYwnYaqekG98zJfcUM/3KoiiiotW5t4xYu//ksEl36bSWvUHsRnxGByg+3WYdnZqKg0AtdRB/EXbI5PsjvS5ko96bkjSuFkY3TjHGwAM2B94K6/t6OTE/NBbxCsY9sT4d+1sbFv/iyfmfCnfvJaSzGmC9CDWKy4iqQ/vBNWps9j1JXk0p5uPAYC2BaMkxl5xoTVZqI3zAuRtQF5JLmPPy+PdqOgFxMKcLGNhwp7dbhIFLF68vCYQ9CL0NnK2d3CFk1UFVYxsi1TsolR1xahe/Rxt5HZDz/z65nevrQ",
+ "ANTHROPIC_API_VERSION": "2023-06-01",
+ "ANTHROPIC_COMPAT_BASE": "https://api.anthropic.com/v1",
+ "ANTIGRAVITY_IDE_BASE_URL": "https://daily-cloudcode-pa.googleapis.com",
+ "ANTIGRAVITY_IDE_USER_AGENT": "antigravity/ide/2.11.0 darwin/arm64",
+ "ANTIGRAVITY_IDE_VERSION": "2.11.0",
+ "ANTIGRAVITY_OAUTH_CLIENT": {
+  "clientId": "{{ANTIGRAVITY_OAUTH_CLIENT_ID}}",
+  "clientSecret": "{{ANTIGRAVITY_OAUTH_CLIENT_SECRET}}"
+ },
+ "CLAUDE_API_HEADERS": {
+  "Anthropic-Version": "2023-06-01",
+  "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14"
+ },
+ "CLAUDE_CLI_SPOOF_HEADERS": {
+  "Anthropic-Version": "2023-06-01",
+  "Anthropic-Beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24,structured-outputs-2025-12-15,fast-mode-2026-02-01,redact-thinking-2026-02-12,token-efficient-tools-2026-03-28",
+  "Anthropic-Dangerous-Direct-Browser-Access": "true",
+  "User-Agent": "claude-cli/2.1.280 (external, sdk-cli)",
+  "X-App": "cli",
+  "X-Stainless-Helper-Method": "stream",
+  "X-Stainless-Retry-Count": "0",
+  "X-Stainless-Runtime-Version": "v24.14.0",
+  "X-Stainless-Package-Version": "0.80.0",
+  "X-Stainless-Runtime": "node",
+  "X-Stainless-Lang": "js",
+  "X-Stainless-Arch": "x64",
+  "X-Stainless-Os": "Linux",
+  "X-Stainless-Timeout": "600"
+ },
+ "CLAUDE_CLI_VERSION": "2.1.280",
+ "GOOGLE_OAUTH_CLIENT": {
+  "clientId": "{{GOOGLE_OAUTH_CLIENT_ID}}",
+  "clientSecret": "{{GOOGLE_OAUTH_CLIENT_SECRET}}"
+ },
+ "KIMI_CODING_BASE_URL": "https://api.kimi.com/coding/v1/messages",
+ "OPENAI_COMPAT_BASE": "https://api.openai.com/v1",
+ "KIRO_AGENTIC_SUFFIX": "-agentic",
+ "KIRO_AGENTIC_SYSTEM_PROMPT": "# CRITICAL: CHUNKED WRITE PROTOCOL (MANDATORY)\n\nYou MUST follow these rules for ALL file operations. Violation causes server timeouts and task failure.\n\n## ABSOLUTE LIMITS\n- **MAXIMUM 350 LINES** per single write/edit operation - NO EXCEPTIONS\n- **RECOMMENDED 300 LINES** or less for optimal performance\n- **NEVER** write entire files in one operation if >300 lines\n\n## MANDATORY CHUNKED WRITE STRATEGY\n\n### For NEW FILES (>300 lines total):\n1. FIRST: Write initial chunk (first 250-300 lines) using write_to_file/fsWrite\n2. THEN: Append remaining content in 250-300 line chunks using file append operations\n3. REPEAT: Continue appending until complete\n\n### For EDITING EXISTING FILES:\n1. Use surgical edits (apply_diff/targeted edits) - change ONLY what's needed\n2. NEVER rewrite entire files - use incremental modifications\n3. Split large refactors into multiple small, focused edits\n\n### For LARGE CODE GENERATION:\n1. Generate in logical sections (imports, types, functions separately)\n2. Write each section as a separate operation\n3. Use append operations for subsequent sections\n\n## EXAMPLES OF CORRECT BEHAVIOR\n\nCORRECT: Writing a 600-line file\n- Operation 1: Write lines 1-300 (initial file creation)\n- Operation 2: Append lines 301-600\n\nCORRECT: Editing multiple functions\n- Operation 1: Edit function A\n- Operation 2: Edit function B\n- Operation 3: Edit function C\n\nWRONG: Writing 500 lines in single operation -> TIMEOUT\nWRONG: Rewriting entire file to change 5 lines -> TIMEOUT\nWRONG: Generating massive code blocks without chunking -> TIMEOUT\n\n## WHY THIS MATTERS\n- Server has 2-3 minute timeout for operations\n- Large writes exceed timeout and FAIL completely\n- Chunked writes are FASTER and more RELIABLE\n- Failed writes waste time and require retry\n\nREMEMBER: When in doubt, write LESS per operation. Multiple small operations > one large operation.",
+ "KIRO_CODEWHISPERER_TARGET": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
+ "KIRO_DEFAULT_PROFILE_ARN": "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX",
+ "KIRO_DEFAULT_PROFILE_ARNS": {
+  "builder-id": "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX",
+  "social": "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK"
+ },
+ "KIRO_ENDPOINT_FALLBACK_STATUSES": [
+  401,
+  403,
+  404
+ ],
+ "KIRO_THINKING_BUDGET_DEFAULT": 16000,
+ "KIRO_THINKING_SUFFIX": "-thinking",
+ "KIRO_TOOL_DESCRIPTION_MAX_LENGTH": 10237,
+ "KIRO_TOOL_ID_MAX_LENGTH": 64,
+ "KIRO_TOOL_NAME_MAX_LENGTH": 64,
+ "CODEX_DEFAULT_INSTRUCTIONS": "You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.\n\n## General\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n\n## Editing constraints\n\n- Default to ASCII when editing or creating files. Only introduce non-ASCII or other Unicode characters when there is a clear justification and the file already uses them.\n- Add succinct code comments that explain what is going on if code is not self-explanatory. You should not add comments like \"Assigns the value to the variable\", but a brief comment might be useful ahead of a complex code block that the user would otherwise have to spend time parsing out. Usage of these comments should be rare.\n- Try to use apply_patch for single file edits, but it is fine to explore other options to make the edit if it does not work well. Do not use apply_patch for changes that are auto-generated (i.e. generating package.json or running a lint or format command like gofmt) or when scripting is more efficient (such as search and replacing a string across a codebase).\n- You may be in a dirty git worktree.\n    * NEVER revert existing changes you did not make unless explicitly requested, since these changes were made by the user.\n    * If asked to make a commit or code edits and there are unrelated changes to your work or changes that you didn't make in those files, don't revert those changes.\n    * If the changes are in files you've touched recently, you should read carefully and understand how you can work with the changes rather than reverting them.\n    * If the changes are in unrelated files, just ignore them and don't revert them.\n- Do not amend a commit unless explicitly requested to do so.\n- While you are working, you might notice unexpected changes that you didn't make. If this happens, STOP IMMEDIATELY and ask the user how they would like to proceed.\n- **NEVER** use destructive commands like `git reset --hard` or `git checkout --` unless specifically requested or approved by the user.\n\n## Plan tool\n\nWhen using the planning tool:\n- Skip using the planning tool for straightforward tasks (roughly the easiest 25%).\n- Do not make single-step plans.\n- When you made a plan, update it after having performed one of the sub-tasks that you shared on the plan.\n\n## Codex CLI harness, sandboxing, and approvals\n\nThe Codex CLI harness supports several different configurations for sandboxing and escalation approvals that the user can choose from.\n\nFilesystem sandboxing defines which files can be read or written. The options for `sandbox_mode` are:\n- **read-only**: The sandbox only permits reading files.\n- **workspace-write**: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval.\n- **danger-full-access**: No filesystem sandboxing - all commands are permitted.\n\nNetwork sandboxing defines whether network can be accessed without approval. Options for `network_access` are:\n- **restricted**: Requires approval\n- **enabled**: No approval needed\n\nApprovals are your mechanism to get user consent to run shell commands without the sandbox. Possible configuration options for `approval_policy` are\n- **untrusted**: The harness will escalate most commands for user approval, apart from a limited allowlist of safe \"read\" commands.\n- **on-failure**: The harness will allow all commands to run in the sandbox (if enabled), and failures will be escalated to the user for approval to run again without the sandbox.\n- **on-request**: Commands will be run in the sandbox by default, and you can specify in your tool call if you want to escalate a command to run without sandboxing. (Note that this mode is not always available. If it is, you'll see parameters for it in the `shell` command description.)\n- **never**: This is a non-interactive mode where you may NEVER ask the user for approval to run commands. Instead, you must always persist and work around constraints to solve the task for the user. You MUST do your utmost best to finish the task and validate your work before yielding. If this mode is paired with `danger-full-access`, take advantage of it to deliver the best outcome for the user. Further, in this mode, your default testing philosophy is overridden: Even if you don't see local patterns for testing, you may add tests and scripts to validate your work. Just remove them before yielding.\n\nWhen you are running with `approval_policy == on-request`, and sandboxing enabled, here are scenarios where you'll need to request approval:\n- You need to run a command that writes to a directory that requires it (e.g. running tests that write to /var)\n- You need to run a GUI app (e.g., open/xdg-open/osascript) to open browsers or files.\n- You are running sandboxed and need to run a command that requires network access (e.g. installing packages)\n- If you run a command that is important to solving the user's query, but it fails because of sandboxing, rerun the command with approval. ALWAYS proceed to use the `sandbox_permissions` and `justification` parameters - do not message the user before requesting approval for the command.\n- You are about to take a potentially destructive action such as an `rm` or `git reset` that the user did not explicitly ask for\n- (for all of these, you should weigh alternative paths that do not require approval)\n\nWhen `sandbox_mode` is set to read-only, you'll need to request approval for any command that isn't a read.\n\nYou will be told what filesystem sandboxing, network sandboxing, and approval mode are active in a developer or user message. If you are not told about this, assume that you are running with workspace-write, network sandboxing enabled, and approval on-failure.\n\nAlthough they introduce friction to the user because your work is paused until the user responds, you should leverage them when necessary to accomplish important work. If the completing the task requires escalated permissions, Do not let these settings or the sandbox deter you from attempting to accomplish the user's task unless it is set to \"never\", in which case never ask for approvals.\n\nWhen requesting approval to execute a command that will require escalated privileges:\n  - Provide the `sandbox_permissions` parameter with the value `\"require_escalated\"`\n  - Include a short, 1 sentence explanation for why you need escalated permissions in the justification parameter\n\n## Special user requests\n\n- If the user makes a simple request (such as asking for the time) which you can fulfill by running a terminal command (such as `date`), you should do so.\n- If the user asks for a \"review\", default to a code review mindset: prioritise identifying bugs, risks, behavioural regressions, and missing tests. Findings must be the primary focus of the response - keep summaries or overviews brief and only after enumerating the issues. Present findings first (ordered by severity with file/line references), follow with open questions or assumptions, and offer a change-summary only as a secondary detail. If no findings are discovered, state that explicitly and mention any residual risks or testing gaps.\n\n## Frontend tasks\nWhen doing frontend design tasks, avoid collapsing into \"AI slop\" or safe, average-looking layouts.\nAim for interfaces that feel intentional, bold, and a bit surprising.\n- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter, Roboto, Arial, system).\n- Color & Look: Choose a clear visual direction; define CSS variables; avoid purple-on-white defaults. No purple bias or dark mode bias.\n- Motion: Use a few meaningful animations (page-load, staggered reveals) instead of generic micro-motions.\n- Background: Don't rely on flat, single-color backgrounds; use gradients, shapes, or subtle patterns to build atmosphere.\n- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.\n- Ensure the page loads properly on both desktop and mobile\n\nException: If working within an existing website or design system, preserve the established patterns, structure, and visual language.\n\n## Presenting your work and final message\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n- Default: be very concise; friendly coding teammate tone.\n- Ask only when needed; suggest ideas; mirror the user's style.\n- For substantial work, summarize clearly; follow final‑answer formatting.\n- Skip heavy formatting for simple confirmations.\n- Don't dump large files you've written; reference paths only.\n- No \"save/copy this file\" - User is on the same machine.\n- Offer logical next steps (tests, commits, build) briefly; add verify steps if you couldn't do something.\n- For code changes:\n  * Lead with a quick explanation of the change, and then give more details on the context covering where and why a change was made. Do not start this explanation with \"summary\", just jump right in.\n  * If there are natural next steps the user may want to take, suggest them at the end of your response. Do not make suggestions if there are no natural next steps.\n  * When suggesting multiple options, use numeric lists for the suggestions so the user can quickly respond with a single number.\n- The user does not command execution outputs. When asked to show the output of a command (e.g. `git show`), relay the important details in your answer or summarize the key lines so the user understands the result.\n\n### Final answer structure and style guidelines\n\n- Plain text; CLI handles styling. Use structure only when it helps scanability.\n- Headers: optional; short Title Case (1-3 words) wrapped in **…**; no blank line before the first bullet; add only if they truly help.\n- Bullets: use - ; merge related points; keep to one line when possible; 4–6 per list ordered by importance; keep phrasing consistent.\n- Monospace: backticks for commands/paths/env vars/code ids and inline examples; use for literal keyword bullets; never combine with **.\n- Code samples or multi-line snippets should be wrapped in fenced code blocks; include an info string as often as possible.\n- Structure: group related bullets; order sections general → specific → supporting; for subsections, start with a bolded keyword bullet, then items; match complexity to the task.\n- Tone: collaborative, concise, factual; present tense, active voice; self‑contained; no \"above/below\"; parallel wording.\n- Don'ts: no nested bullets/hierarchies; no ANSI codes; don't cram unrelated keywords; keep keyword lists short—wrap/reformat if long; avoid naming formatting styles in answers.\n- Adaptation: code explanations → precise, structured with code refs; simple tasks → lead with outcome; big changes → logical walkthrough + rationale + next actions; casual one-offs → plain sentences, no headers/bullets.\n- File References: When referencing files in your response follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace‑relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Optionally include line/column (1‑based): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5",
+ "GROK_CLI_BASE_URL": "https://cli-chat-proxy.grok.com/v1",
+ "GROK_CLI_CLIENT_IDENTIFIER": "grok-shell",
+ "GROK_CLI_MODEL": "grok-build",
+ "GROK_CLI_PAGER_USER_AGENT": "grok-pager/1.0.44 grok-shell/1.0.44 (linux; x86_64)",
+ "GROK_CLI_USER_AGENT": "grok-shell/1.0.44 (linux; x86_64)",
+ "GROK_CLI_VERSION": "1.0.44"
+}

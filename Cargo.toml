@@ -4,24 +4,34 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes = "0.8"
 anyhow = "1.0.104"
 argon2 = "0.6.0"
 async-stream = "0.3.6"
+async-trait = "0.1.92"
 axum = "0.8"
 axum-extra = { version = "0.12.6", features = ["cookie", "form"] }
+base64 = "0.23.1"
 bytes = "1.12.1"
+cbc = { version = "0.1", features = ["alloc"] }
 dirs = "7.0.0"
+flate2 = "1"
 futures = "0.3.34"
 hex = "0.4.3"
 hmac = "0.13.0"
 maud = { version = "0.27.0", features = ["axum"] }
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream", "json", "http2", "system-proxy"] }
+md-5 = "0.10"
+regex = "1.13.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream", "json", "http2", "system-proxy", "gzip", "brotli", "zstd", "deflate", "multipart", "form"] }
+rsa = { version = "0.9", features = ["sha2"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+sha1 = "0.10"
 sha2 = "0.11.0"
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] }
 tokio = { version = "1.53.2", features = ["full"] }
 tower-http = { version = "0.7.1", features = ["compression-gzip", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-uuid = { version = "1.27.0", features = ["v4"] }
+uuid = { version = "1.27.0", features = ["v4", "v5"] }
