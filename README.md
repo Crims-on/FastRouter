@@ -6,7 +6,7 @@ A local AI gateway written in Rust, modelled on [9router](https://github.com/dec
 FastRouter gives Claude Code, Codex, Cursor, Cline and any OpenAI or Anthropic SDK client a single endpoint. It routes each request to one of many upstream providers, translates between API formats, falls back automatically when a provider fails, and tracks token usage and estimated cost.
 
 - **Backend:** [axum](https://github.com/tokio-rs/axum) + tokio + reqwest. SQLite (bundled) is used for storage.
-- **Dashboard:** rendered on the server by compile-time [maud](https://maud.lambda.xyz) templates. There's no SPA, no build step and no JS framework. Every page is complete HTML before it reaches the browser. A few lines of inline JS power the "Copy" buttons, and everything else works with JS disabled.
+- **Dashboard:** server-rendered HTML, dark by default (light theme one click away). Overview, usage, provider and key pages update live over Server-Sent Events — the server re-renders the affected regions as traffic arrives — and every page still works with JavaScript disabled.
 - **Single binary:** the CSS is embedded, so you don't need to deploy any assets.
 
 ## Features

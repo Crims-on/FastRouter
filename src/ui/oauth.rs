@@ -181,17 +181,17 @@ fn code_from(provider: &str, raw_query: &str, pairs: &[(String, String)]) -> Opt
 }
 
 fn result_page(ok: bool, title: &str, msg: &str, link: Option<String>) -> Html<String> {
-    let m = html! {
-        (maud::DOCTYPE)
-        html lang="en" {
-            head { meta charset="utf-8"; title { (title) } link rel="stylesheet" href="/static/app.css"; }
-            body { div.login-wrap { div.login { div.card {
-                h2 { (if ok { "✅ " } else { "⚠️ " }) (title) }
-                p.muted { (msg) }
-                @if let Some(l) = link { p { a.btn.primary href=(l) { "Back to dashboard" } } }
-            } } } }
+    let m = super::bare_page(title, html! {
+        div.brand { (super::mark()) "FastRouter" }
+        div.card style="margin-top:18px" {
+            div style="display:flex;align-items:center;gap:8px;margin-bottom:8px" {
+                span class=(if ok { "badge ok" } else { "badge err" }) { span.dot {} (if ok { "Connected" } else { "Failed" }) }
+            }
+            h2 { (title) }
+            p.small.muted { (msg) }
+            @if let Some(l) = link { a.btn.primary href=(l) { "Back to dashboard" } }
         }
-    };
+    });
     Html(m.into_string())
 }
 

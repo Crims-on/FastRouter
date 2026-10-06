@@ -476,21 +476,29 @@ impl Db {
             .unwrap_or_default()
     }
 
-    pub fn histogram(&self, buckets: i64, size: i64) -> Vec<(i64, i64, i64)> {
+    /// `(bucket start, requests, failed requests, tokens)` per bucket.
+    pub fn histogram(&self, buckets: i64, size: i64) -> Vec<(i64, i64, i64, i64)> {
         let end = (now() / size + 1) * size;
         let start = end - buckets * size;
-        let mut out: Vec<(i64, i64, i64)> = (0..buckets).map(|i| (start + i * size, 0, 0)).collect();
+        let mut out: Vec<(i64, i64, i64, i64)> = (0..buckets).map(|i| (start + i * size, 0, 0, 0)).collect();
         let c = self.lock();
-        let Ok(mut st) = c.prepare("SELECT (ts - ?1) / ?2 AS b, COUNT(*), SUM(prompt_tokens + completion_tokens) FROM usage WHERE ts >= ?1 GROUP BY b") else { return out };
-        if let Ok(rows) = st.query_map(params![start, size], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))) {
-            for (b, n, t) in rows.flatten() {
+        let Ok(mut st) = c.prepare("SELECT (ts - ?1) / ?2 AS b, COUNT(*), COALESCE(SUM(status NOT BETWEEN 200 AND 299), 0), COALESCE(SUM(prompt_tokens + completion_tokens), 0) FROM usage WHERE ts >= ?1 GROUP BY b") else { return out };
+        if let Ok(rows) = st.query_map(params![start, size], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?))) {
+            for (b, n, e, t) in rows.flatten() {
                 if let Some(slot) = out.get_mut(b as usize) {
                     slot.1 = n;
-                    slot.2 = t;
+                    slot.2 = e;
+                    slot.3 = t;
                 }
             }
         }
         out
+    }
+
+    /// Monotonic count of rows written since open — cheap change detection
+    /// for the live dashboard.
+    pub fn change_counter(&self) -> u64 {
+        self.lock().total_changes() as u64
     }
 
     pub fn recent_usage(&self, limit: i64, offset: i64) -> Vec<UsageRecord> {

@@ -5,36 +5,42 @@ use maud::{Markup, html};
 use serde::Deserialize;
 
 use super::{
-    Flash, Nav, ago, copy_button, mask, page as layout, page_head, redirect_err, redirect_ok,
+    Flash, Nav, ago, copy_button, mask, page_head, redirect_err, redirect_ok,
 };
 use crate::AppState;
 use crate::db::{ApiKey, now};
+
+pub fn keys_table(keys: &[ApiKey]) -> Markup {
+    html! {
+        @if keys.is_empty() {
+            div.empty { "No keys yet." }
+        } @else {
+            div.table-wrap { table {
+                thead { tr { th { "Name" } th { "Key" } th { "Created" } th { "Last used" } th {} } }
+                tbody { @for k in keys { tr {
+                    td { strong { (k.name) } }
+                    td { div style="display:flex;gap:6px;align-items:center" { code { (mask(&k.key)) } (copy_button(&k.key)) } }
+                    td.small.muted { (ago(k.created_at)) }
+                    td.small.muted { @if let Some(t) = k.last_used { (ago(t)) } @else { "never" } }
+                    td { form.inline method="post" action=(format!("/dashboard/keys/{}/delete", k.id)) {
+                        button.btn.sm.danger type="submit" { "Revoke" }
+                    } }
+                } } }
+            } }
+        }
+    }
+}
 
 pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> Markup {
     let keys = state.db.list_api_keys();
     let required = crate::auth::api_key_required(&state);
     let env_locked = state.config.require_api_key.is_some();
     let body = html! {
-        (page_head("API Keys", "Keys that clients present to FastRouter (not your upstream provider keys).", html! {}))
+        (page_head("API keys", "Keys your clients present to FastRouter — not your upstream provider keys.", html! {}))
         div.split {
             div.card {
-                div.card-head { h2 { "Keys" } span.muted.small { (keys.len()) " total" } }
-                @if keys.is_empty() {
-                    div.empty { "No keys yet." }
-                } @else {
-                    div.table-wrap { table {
-                        thead { tr { th { "Name" } th { "Key" } th { "Created" } th { "Last used" } th {} } }
-                        tbody { @for k in &keys { tr {
-                            td { strong { (k.name) } }
-                            td { div style="display:flex;gap:6px;align-items:center" { code { (mask(&k.key)) } (copy_button(&k.key)) } }
-                            td.small.muted { (ago(k.created_at)) }
-                            td.small.muted { @if let Some(t) = k.last_used { (ago(t)) } @else { "never" } }
-                            td { form.inline method="post" action=(format!("/dashboard/keys/{}/delete", k.id)) {
-                                button.btn.sm.danger type="submit" { "Revoke" }
-                            } }
-                        } } }
-                    } }
-                }
+                div.card-head { h2 { "Keys" } (super::live_pill()) }
+                div data-region="keys" { (keys_table(&keys)) }
             }
             div.stack {
                 div.card {
@@ -61,7 +67,7 @@ pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> 
             }
         }
     };
-    layout("API Keys", Nav::Keys, &flash, body)
+    super::page_live("API keys", Nav::Keys, &flash, Some("/dashboard/live?view=keys".into()), body)
 }
 
 #[derive(Deserialize)]

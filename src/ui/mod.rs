@@ -3,6 +3,7 @@
 
 mod combos;
 mod keys;
+mod live;
 mod oauth;
 mod overview;
 mod providers;
@@ -23,6 +24,7 @@ pub const CSS: &str = include_str!("style.css");
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/dashboard", get(overview::page))
+        .route("/dashboard/live", get(live::stream))
         .route("/dashboard/providers", get(providers::list))
         .route("/dashboard/providers/new-node", post(providers::create_node))
         .route("/dashboard/providers/{id}", get(providers::detail))
@@ -123,82 +125,113 @@ pub enum Nav {
     Settings,
 }
 
-const NAV: &[(Nav, &str, &str, &str)] = &[
+/// Line icons (24px grid, drawn with `currentColor`).
+const NAV: &[(&str, &[(Nav, &str, &str, &str)])] = &[
     (
-        Nav::Overview,
-        "/dashboard",
-        "Overview",
-        r#"<path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/>"#,
+        "Monitor",
+        &[
+            (Nav::Overview, "/dashboard", "Overview", r#"<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="4.5" rx="1.5"/><rect x="13.5" y="11" width="7" height="9.5" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/>"#),
+            (Nav::Usage, "/dashboard/usage", "Usage", r#"<path d="M4 20V13M10 20V6M16 20v-9M22 20H2"/>"#),
+        ],
     ),
     (
-        Nav::Providers,
-        "/dashboard/providers",
-        "Providers",
-        r#"<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>"#,
+        "Routing",
+        &[
+            (Nav::Providers, "/dashboard/providers", "Providers", r#"<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.5 6h2c2 0 3 1 3.6 2.6l.4 1c.5 1.3 1 1.9 1.9 2.2M8.5 18h2c2 0 3-1 3.6-2.6l.4-1c.5-1.3 1-1.9 1.9-2.2"/>"#),
+            (Nav::Combos, "/dashboard/combos", "Combos", r#"<rect x="3" y="4" width="18" height="4.5" rx="1.5"/><rect x="3" y="10.5" width="13" height="4.5" rx="1.5"/><rect x="3" y="17" width="8" height="4" rx="1.5"/>"#),
+            (Nav::Models, "/dashboard/models", "Models", r#"<path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>"#),
+        ],
     ),
     (
-        Nav::Combos,
-        "/dashboard/combos",
-        "Combos",
-        r#"<path d="M7 7h7a3 3 0 0 1 0 6H10a3 3 0 0 0 0 6h7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="5" cy="7" r="2.4"/><circle cx="19" cy="19" r="2.4"/>"#,
-    ),
-    (
-        Nav::Models,
-        "/dashboard/models",
-        "Models",
-        r#"<path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L18.7 8 12 11.7 5.3 8zM5 9.7l6 3.3v6.7l-6-3.3zm8 10V13l6-3.3v6.7z"/>"#,
-    ),
-    (
-        Nav::Keys,
-        "/dashboard/keys",
-        "API Keys",
-        r#"<path d="M14 3a7 7 0 0 0-6.7 9.1L2 17.4V22h4.6l1-1v-2h2v-2h2l1.3-1.3A7 7 0 1 0 14 3m2.5 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3"/>"#,
-    ),
-    (
-        Nav::Usage,
-        "/dashboard/usage",
-        "Usage",
-        r#"<path d="M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-7h3v7z"/>"#,
-    ),
-    (
-        Nav::Settings,
-        "/dashboard/settings",
-        "Settings",
-        r#"<path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.9c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7"/>"#,
+        "Access",
+        &[
+            (Nav::Keys, "/dashboard/keys", "API keys", r#"<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16 7l2.5 2.5M14 9l1.8 1.8"/>"#),
+            (Nav::Settings, "/dashboard/settings", "Settings", r#"<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>"#),
+        ],
     ),
 ];
 
-/// Tiny progressive enhancement: copy buttons. Every page works without it.
-const COPY_JS: &str = r#"document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var t=b.getAttribute('data-copy');navigator.clipboard&&navigator.clipboard.writeText(t).then(function(){var o=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=o},1200)})});"#;
+/// The FastRouter mark: three lanes merging into one.
+pub fn mark() -> Markup {
+    PreEscaped(r#"<svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M6.5 7.5c4 0 4.5 5.5 8.5 5.5M6.5 18.5c4 0 4.5-5.5 8.5-5.5M6.5 13H15M15 13h4.5" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round"/></svg>"#.to_string())
+}
+
+const FAVICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='7' fill='%23ff7a3d'/%3E%3Cpath d='M6.5 7.5c4 0 4.5 5.5 8.5 5.5M6.5 18.5c4 0 4.5-5.5 8.5-5.5M6.5 13H15M15 13h4.5' fill='none' stroke='%23160a04' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E";
+
+/// Applies a saved theme before first paint.
+const THEME_JS: &str = r#"try{var t=localStorage.getItem('fr-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}"#;
+
+/// Progressive enhancement only — every page is complete HTML without it:
+/// copy buttons, the theme toggle, and live region updates over SSE.
+const APP_JS: &str = r#"(function(){
+document.addEventListener('click',function(e){
+var b=e.target.closest('[data-copy]');
+if(b){var t=b.getAttribute('data-copy');if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){var o=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=o},1200)});return}
+if(e.target.closest('[data-theme-toggle]')){var r=document.documentElement,n=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',n);try{localStorage.setItem('fr-theme',n)}catch(_){}}
+});
+var src=document.body.getAttribute('data-live');
+if(!src||!window.EventSource)return;
+var pill=document.getElementById('live');
+function busy(el){var a=document.activeElement;return(a&&el.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||el.querySelector('details[open]')}
+var es=new EventSource(src);
+es.onopen=function(){if(pill)pill.classList.add('on')};
+es.onerror=function(){if(pill)pill.classList.remove('on')};
+es.addEventListener('region',function(ev){
+var m=JSON.parse(ev.data),el=document.querySelector('[data-region="'+m.r+'"]');
+if(!el||busy(el))return;
+var old={},seen={},had=false;
+el.querySelectorAll('[data-k]').forEach(function(n){old[n.getAttribute('data-k')]=n.textContent});
+el.querySelectorAll('tr[data-id]').forEach(function(n){seen[n.getAttribute('data-id')]=1;had=true});
+el.innerHTML=m.h;
+el.querySelectorAll('[data-k]').forEach(function(n){var k=n.getAttribute('data-k');if(k in old&&old[k]!==n.textContent)n.classList.add('bump')});
+if(had)el.querySelectorAll('tr[data-id]').forEach(function(n){if(!seen[n.getAttribute('data-id')])n.classList.add('fresh')});
+});
+es.addEventListener('reload',function(){if(!document.querySelector('details[open],input:focus,textarea:focus,select:focus'))location.reload()});
+})();"#;
 
 pub fn page(title: &str, active: Nav, flash: &Flash, body: Markup) -> Markup {
+    page_live(title, active, flash, None, body)
+}
+
+/// A dashboard page; `live` is the SSE source that keeps its regions fresh.
+pub fn page_live(title: &str, active: Nav, flash: &Flash, live: Option<String>, body: Markup) -> Markup {
     html! {
         (DOCTYPE)
-        html lang="en" {
+        html lang="en" data-theme="dark" {
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
+                meta name="color-scheme" content="dark light";
                 title { (title) " · FastRouter" }
+                script { (PreEscaped(THEME_JS)) }
                 link rel="stylesheet" href="/static/app.css";
-                link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%235b5bf0'/><path d='M9 22 16 9l7 13' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/></svg>";
+                link rel="icon" href=(FAVICON);
             }
-            body {
+            body data-live=[live.as_deref()] {
                 div.shell {
                     aside.side {
-                        a.brand href="/dashboard" style="color:inherit;text-decoration:none" {
-                            span.brand-mark { "⚡" } "FastRouter"
-                        }
+                        a.brand href="/dashboard" { (mark()) "FastRouter" }
                         nav.nav {
-                            @for (nav, href, label, icon) in NAV {
-                                a href=(href) class=[(active == *nav).then_some("active")] {
-                                    svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" { (PreEscaped(*icon)) }
-                                    (label)
+                            @for (group, items) in NAV {
+                                div.nav-label { (group) }
+                                @for (nav, href, label, icon) in *items {
+                                    a href=(href) class=[(active == *nav).then_some("active")] {
+                                        svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" { (PreEscaped(*icon)) }
+                                        (label)
+                                    }
                                 }
                             }
                         }
                         div.side-foot {
-                            "v" (env!("CARGO_PKG_VERSION")) " · Rust + axum"
-                            form method="post" action="/logout" { button.btn.sm type="submit" { "Log out" } }
+                            span.ver { "v" (env!("CARGO_PKG_VERSION")) }
+                            button.icon-btn type="button" data-theme-toggle title="Toggle light / dark" {
+                                svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" { (PreEscaped(r#"<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>"#)) }
+                            }
+                            form method="post" action="/logout" {
+                                button.icon-btn type="submit" title="Sign out" {
+                                    svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" { (PreEscaped(r#"<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>"#)) }
+                                }
+                            }
                         }
                     }
                     main.main {
@@ -207,23 +240,46 @@ pub fn page(title: &str, active: Nav, flash: &Flash, body: Markup) -> Markup {
                         (body)
                     }
                 }
-                script { (PreEscaped(COPY_JS)) }
+                script { (PreEscaped(APP_JS)) }
             }
         }
     }
 }
 
+/// A standalone page (sign-in, OAuth results) without the sidebar.
+pub fn bare_page(title: &str, body: Markup) -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="en" data-theme="dark" {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { (title) " · FastRouter" }
+                script { (PreEscaped(THEME_JS)) }
+                link rel="stylesheet" href="/static/app.css";
+                link rel="icon" href=(FAVICON);
+            }
+            body { div.login-wrap { div.login { (body) } } }
+        }
+    }
+}
+
+/// The "Live" pill shown on pages that update in place.
+pub fn live_pill() -> Markup {
+    html! { span.live #live title="Updates in real time" { i {} "Live" } }
+}
+
 pub fn page_head(title: &str, subtitle: &str, actions: Markup) -> Markup {
     html! {
         div.page-head {
-            div { h1 { (title) } p { (subtitle) } }
+            div { h1 { (title) } @if !subtitle.is_empty() { p { (subtitle) } } }
             div.actions { (actions) }
         }
     }
 }
 
 pub fn copy_button(text: &str) -> Markup {
-    html! { button.btn.sm type="button" data-copy=(text) { "Copy" } }
+    html! { button.btn.sm.ghost type="button" data-copy=(text) { "Copy" } }
 }
 
 pub fn status_badge(status: i64) -> Markup {
@@ -232,7 +288,7 @@ pub fn status_badge(status: i64) -> Markup {
         429 => "badge warn",
         _ => "badge err",
     };
-    html! { span class=(class) { (status) } }
+    html! { span class=(class) { span.code-pill { (status) } } }
 }
 
 /// The public URL of this server, derived from the request's Host header.
@@ -318,41 +374,45 @@ pub fn datetime(ts: i64) -> String {
     )
 }
 
-/// A pre-rendered SVG bar chart.
-pub fn bar_chart(
-    buckets: &[(i64, i64, i64)],
-    label_every: usize,
-    label: impl Fn(i64) -> String,
-) -> Markup {
+/// A pre-rendered SVG bar chart: successful requests stacked under failures.
+pub fn bar_chart(buckets: &[(i64, i64, i64, i64)], label_every: usize, label: impl Fn(i64) -> String) -> Markup {
     let w = 720.0_f64;
-    let h = 160.0_f64;
-    let pad_b = 20.0;
-    let pad_t = 8.0;
+    let h = 150.0_f64;
     let max = buckets.iter().map(|b| b.1).max().unwrap_or(0).max(1) as f64;
     let n = buckets.len().max(1) as f64;
     let slot = w / n;
-    let bw = (slot * 0.68).max(1.0);
+    let bw = (slot * 0.56).max(1.0);
+    let total: i64 = buckets.iter().map(|b| b.1).sum();
+    let failed: i64 = buckets.iter().map(|b| b.2).sum();
     html! {
         div.chart {
             svg viewBox=(format!("0 0 {w} {h}")) preserveAspectRatio="none" role="img" aria-label="Requests over time" {
-                @for i in 0..=3 {
-                    @let y = pad_t + (h - pad_b - pad_t) * f64::from(i) / 3.0;
-                    line.grid-line x1="0" x2=(w) y1=(y) y2=(y) {}
+                @for i in 1..=3 {
+                    @let y = h * f64::from(i) / 4.0;
+                    line.grid-line x1="0" x2=(w) y1=(y) y2=(y) vector-effect="non-scaling-stroke" {}
                 }
-                @for (i, (ts, count, tokens)) in buckets.iter().enumerate() {
-                    @let bh = (h - pad_b - pad_t) * (*count as f64) / max;
+                line.base x1="0" x2=(w) y1=(h - 0.5) y2=(h - 0.5) vector-effect="non-scaling-stroke" {}
+                @for (i, (ts, count, errors, tokens)) in buckets.iter().enumerate() {
                     @let x = slot * i as f64 + (slot - bw) / 2.0;
-                    rect.bar x=(format!("{x:.1}")) y=(format!("{:.1}", h - pad_b - bh)) width=(format!("{bw:.1}")) height=(format!("{:.1}", bh.max(if *count > 0 { 1.5 } else { 0.0 }))) rx="2" {
-                        title { (label(*ts)) " — " (count) " requests, " (fmt_num(*tokens)) " tokens" }
-                    }
-                    @if i % label_every == 0 {
-                        text x=(format!("{:.1}", slot * i as f64 + slot / 2.0)) y=(h - 5.0) text-anchor="middle" { (label(*ts)) }
+                    @let total_h = (h - 4.0) * (*count as f64) / max;
+                    @let err_h = if *count > 0 { total_h * (*errors as f64) / (*count as f64) } else { 0.0 };
+                    @let ok_h = total_h - err_h;
+                    @let tip = format!("{} — {} requests{}, {} tokens", label(*ts), count, if *errors > 0 { format!(" ({errors} failed)") } else { String::new() }, fmt_num(*tokens));
+                    g {
+                        title { (tip) }
+                        @if ok_h > 0.0 { rect.bar x=(format!("{x:.1}")) y=(format!("{:.1}", h - ok_h.max(1.5))) width=(format!("{bw:.1}")) height=(format!("{:.1}", ok_h.max(1.5))) rx="1.5" {} }
+                        @if err_h > 0.0 { rect.bar.err x=(format!("{x:.1}")) y=(format!("{:.1}", h - total_h.max(1.5))) width=(format!("{bw:.1}")) height=(format!("{:.1}", err_h.max(1.5))) rx="1.5" {} }
                     }
                 }
             }
-            div.small.muted style="display:flex;justify-content:space-between" {
-                span { "peak " (max as i64) " req" }
-                span { "UTC" }
+            div.chart-foot {
+                @for (i, b) in buckets.iter().enumerate() {
+                    @if i % label_every == 0 { span { (label(b.0)) } }
+                }
+            }
+            div.chart-foot style="margin-top:12px" {
+                span.legend { span { i {} "Requests " span.muted data-k="c-total" { (fmt_num(total)) } } span { i.err {} "Failed " span.muted data-k="c-fail" { (fmt_num(failed)) } } }
+                span { "peak " (max as i64) "/bucket · UTC" }
             }
         }
     }

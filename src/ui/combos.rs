@@ -88,7 +88,7 @@ pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> 
                             }
                         }
                         details.edit {
-                            summary.small.muted { "Edit ▸" }
+                            summary.small.muted { "Edit" }
                             (combo_form(&c.name, &c.models, true))
                         }
                     }

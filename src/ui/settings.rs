@@ -3,7 +3,7 @@ use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::Cookie;
-use maud::{DOCTYPE, Markup, html};
+use maud::{Markup, html};
 use serde::Deserialize;
 
 use super::{Flash, Nav, page as layout, page_head, redirect_err, redirect_ok};
@@ -19,36 +19,21 @@ pub async fn login_page(
         return Redirect::to("/dashboard").into_response();
     }
     let default_pw = auth::verify_password(&state.db, "123456");
-    html! {
-        (DOCTYPE)
-        html lang="en" {
-            head {
-                meta charset="utf-8";
-                meta name="viewport" content="width=device-width, initial-scale=1";
-                title { "Sign in · FastRouter" }
-                link rel="stylesheet" href="/static/app.css";
-            }
-            body {
-                div.login-wrap { div.login {
-                    div.brand { span.brand-mark { "⚡" } "FastRouter" }
-                    p.muted style="text-align:center;margin-bottom:18px" { "One endpoint for every AI provider." }
-                    @if let Some(err) = &flash.err { div.flash.err { (err) } }
-                    div.card {
-                        form method="post" action="/login" {
-                            label for="password" { "Password" }
-                            input #password type="password" name="password" autofocus required autocomplete="current-password";
-                            button.btn.primary type="submit" style="width:100%;margin-top:14px" { "Sign in" }
-                        }
-                    }
-                    @if default_pw {
-                        p.small.muted style="text-align:center;margin-top:14px" {
-                            "Default password is " code { "123456" } " — change it in Settings."
-                        }
-                    }
-                } }
+    super::bare_page("Sign in", html! {
+        div.brand { (super::mark()) "FastRouter" }
+        p.tag { "One endpoint for every model you pay for." }
+        @if let Some(err) = &flash.err { div.flash.err { (err) } }
+        div.card {
+            form method="post" action="/login" {
+                label for="password" { "Password" }
+                input #password type="password" name="password" autofocus required autocomplete="current-password";
+                button.btn.primary type="submit" { "Sign in" }
             }
         }
-    }
+        @if default_pw {
+            p.small.muted style="text-align:center;margin-top:16px" { "Default password is " code { "123456" } " — change it in Settings." }
+        }
+    })
     .into_response()
 }
 
@@ -133,7 +118,7 @@ pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> 
                         @for name in crate::secrets::NAMES {
                             div.full {
                                 label { code { (name) } @if !crate::secrets::get(name).is_empty() { " " span.badge.ok { "set" } } }
-                                input type="text" name=(name) autocomplete="off" value=(clients[*name].as_str().unwrap_or(""));
+                                input type=(if name.ends_with("SECRET") { "password" } else { "text" }) name=(name) autocomplete="off" value=(clients[*name].as_str().unwrap_or(""));
                             }
                         }
                     }

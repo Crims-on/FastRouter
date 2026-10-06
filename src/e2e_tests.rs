@@ -456,3 +456,32 @@ fn every_media_kind_has_adapter() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// The dashboard's live stream pushes re-rendered regions after traffic.
+#[tokio::test]
+async fn dashboard_live_updates() {
+    use futures::StreamExt;
+    let e = env().await;
+    crate::auth::bootstrap(&e.db, "pw123456").unwrap();
+    let c = reqwest::Client::builder().cookie_store(true).redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    c.post(format!("{}/login", e.base)).form(&[("password", "pw123456")]).send().await.unwrap();
+    // Unauthenticated access to the stream is refused.
+    let anon = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    assert_eq!(anon.get(format!("{}/dashboard/live?view=overview", e.base)).send().await.unwrap().status().as_u16(), 303);
+    let page = c.get(format!("{}/dashboard", e.base)).send().await.unwrap().text().await.unwrap();
+    assert!(page.contains(r#"data-live="/dashboard/live?view=overview""#) && page.contains(r#"data-region="stats""#));
+    assert!(!page.to_lowercase().contains("axum") && !page.contains("Rust"));
+    let r = c.get(format!("{}/dashboard/live?view=overview", e.base)).send().await.unwrap();
+    assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/event-stream"));
+    let mut body = r.bytes_stream();
+    let (st, _) = post_json(&format!("{}/v1/chat/completions", e.base), json!({"model": "mock/m-1", "messages": [{"role": "user", "content": "hey"}]})).await;
+    assert_eq!(st, 200);
+    let mut seen = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(8);
+    while !(seen.contains("\"r\":\"stats\"") && seen.contains("\"r\":\"recent\"")) {
+        let chunk = tokio::time::timeout_at(deadline, body.next()).await.expect("no live update within 8s").unwrap().unwrap();
+        seen.push_str(&String::from_utf8_lossy(&chunk));
+    }
+    assert!(seen.contains("event: region"));
+    assert!(seen.contains("mock/m-1"), "recent requests region should list the new request");
+}

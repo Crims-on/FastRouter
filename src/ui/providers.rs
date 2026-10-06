@@ -9,7 +9,7 @@ use maud::{Markup, html};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Flash, Nav, mask, page as layout, page_head, redirect_err, redirect_ok, urlencode};
+use super::{Flash, Nav, mask, page_head, redirect_err, redirect_ok, urlencode};
 use crate::AppState;
 use crate::chat::accounts;
 use crate::exec::{is_anthropic_compatible, is_openai_compatible};
@@ -88,7 +88,18 @@ pub fn pinfo(db: &crate::db::Db, id: &str) -> Option<PInfo> {
 }
 
 fn logo(p: &PInfo) -> Markup {
-    html! { span.logo style=(format!("background:{}", p.color)) { (p.icon_text.chars().take(2).collect::<String>()) } }
+    // Brand colours that would vanish on the dark (or light) surface get a
+    // neutral tile instead.
+    let hex = p.color.trim_start_matches('#');
+    let lum = (hex.len() == 6).then(|| {
+        let c = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(128) as f64 / 255.0;
+        0.2126 * c(0) + 0.7152 * c(2) + 0.0722 * c(4)
+    });
+    let style = match lum {
+        Some(l) if !(0.08..=0.8).contains(&l) => "background:var(--panel-3);color:var(--text)".to_string(),
+        _ => format!("background:{}", p.color),
+    };
+    html! { span.logo style=(style) { (p.icon_text.chars().take(2).collect::<String>()) } }
 }
 
 fn category_label(c: &str) -> &'static str {
@@ -110,17 +121,34 @@ pub struct ListQuery {
     err: Option<String>,
 }
 
-pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> Markup {
-    let flash = Flash { ok: q.ok.clone(), err: q.err.clone() };
-    let conns = state.db.list_connections();
+/// `(connections, active)` per provider id.
+pub fn connection_counts(db: &crate::db::Db) -> HashMap<String, (usize, usize)> {
     let mut counts: HashMap<String, (usize, usize)> = HashMap::new();
-    for c in &conns {
+    for c in &db.list_connections() {
         let e = counts.entry(c["provider"].as_str().unwrap_or("").to_string()).or_default();
         e.0 += 1;
         if c["isActive"] != json!(false) {
             e.1 += 1;
         }
     }
+    counts
+}
+
+/// The status chip on a provider card.
+pub fn card_badge(id: &str, counts: &HashMap<String, (usize, usize)>) -> Markup {
+    let (n, on) = counts.get(id).copied().unwrap_or((0, 0));
+    html! {
+        @if n > 0 {
+            span class=(if on > 0 { "badge ok" } else { "badge" }) { span.dot {} (on) "/" (n) }
+        } @else if accounts::is_free_no_auth(id) {
+            span.badge.ok { "free" }
+        }
+    }
+}
+
+pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> Markup {
+    let flash = Flash { ok: q.ok.clone(), err: q.err.clone() };
+    let counts = connection_counts(&state.db);
     let needle = q.q.clone().unwrap_or_default().to_lowercase();
     let mut infos: Vec<PInfo> = REG.entries.iter().filter_map(|e| pinfo(&state.db, e["id"].as_str()?)).collect();
     for n in state.db.list_nodes(None) {
@@ -131,8 +159,6 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
     infos.retain(|p| needle.is_empty() || p.name.to_lowercase().contains(&needle) || p.id.contains(&needle) || p.alias.contains(&needle));
     let order = ["oauth", "free", "freeTier", "apikey", "webCookie", "custom"];
     let card = |p: &PInfo| {
-        let (n, on) = counts.get(&p.id).copied().unwrap_or((0, 0));
-        let free = accounts::is_free_no_auth(&p.id);
         html! {
             a.prov href=(format!("/dashboard/providers/{}", urlencode(&p.id))) {
                 (logo(p))
@@ -140,16 +166,13 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
                     div.name { (p.name) @if p.deprecated { " " span.badge.warn { "deprecated" } } }
                     div.meta.mono { (p.alias) "/" }
                 }
-                @if n > 0 {
-                    span class=(if on > 0 { "badge ok" } else { "badge" }) { span.dot {} (on) "/" (n) }
-                } @else if free {
-                    span.badge.ok { "ready" }
-                }
+                span data-region=(format!("pc-{}", p.id)) { (card_badge(&p.id, &counts)) }
             }
         }
     };
     let body = html! {
-        (page_head("Providers", "Connect accounts and keys. Several connections per provider are rotated or used as fallbacks automatically.", html! {
+        (page_head("Providers", "Connect accounts and keys. Several accounts per provider are rotated or used as fallbacks automatically.", html! {
+            (super::live_pill())
             form method="get" action="/dashboard/providers" style="display:flex;gap:6px" {
                 input type="search" name="q" value=(q.q.clone().unwrap_or_default()) placeholder="Search providers…" style="width:220px";
             }
@@ -162,7 +185,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
                     div.prov-grid { @for p in &items { (card(p)) } }
                     @if cat == "custom" {
                         details.card style="margin-top:10px" {
-                            summary { strong { "+ Add an OpenAI- or Anthropic-compatible endpoint" } }
+                            summary { strong { "Add a custom endpoint" } span.muted { " — any OpenAI-, Responses-, Anthropic-compatible or embeddings API" } }
                             form method="post" action="/dashboard/providers/new-node" style="margin-top:12px" {
                                 div.form-grid {
                                     div { label { "Type" } select name="ty" {
@@ -191,7 +214,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
             }
         }
     };
-    layout("Providers", Nav::Providers, &flash, body)
+    super::page_live("Providers", Nav::Providers, &flash, Some("/dashboard/live?view=providers".into()), body)
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +231,7 @@ fn auth_label(c: &Value) -> String {
     if m.is_empty() { t.to_string() } else { format!("{t} · {m}") }
 }
 
-fn status_cell(c: &Value) -> Markup {
+pub fn status_cell(c: &Value) -> Markup {
     let locks: Vec<(String, i64)> = c
         .as_object()
         .map(|o| o.iter().filter(|(k, _)| k.starts_with(accounts::MODEL_LOCK_PREFIX)).filter_map(|(k, v)| v.as_str().and_then(parse_iso_ms).filter(|t| *t > now_ms()).map(|t| (k[accounts::MODEL_LOCK_PREFIX.len()..].to_string(), t))).collect())
@@ -274,7 +297,7 @@ fn add_key_form(p: &PInfo) -> Markup {
                 }
             }
             details style="margin-top:10px" {
-                summary.small.muted { "Advanced ▸" }
+                summary.small.muted { "Advanced" }
                 div.form-grid style="margin-top:8px" {
                     div.full { label { "HTTP(S)/SOCKS proxy for this connection " span.hint { "(optional)" } } input type="text" name="proxy" placeholder="http://user:pass@host:port"; }
                     div.full { label { "Extra providerSpecificData (JSON) " span.hint { "(optional)" } } textarea name="psd_json" rows="3" placeholder="{\"baseUrl\": \"https://…\"}" {} }
@@ -338,7 +361,7 @@ fn oauth_section(p: &PInfo) -> Markup {
                     @if id == "kiro" {
                         (device("AWS Builder ID login", html! { input type="hidden" name="auth_method" value="builder-id"; }))
                         details style="margin-top:10px" {
-                            summary.small.muted { "AWS IAM Identity Center (enterprise) ▸" }
+                            summary.small.muted { "AWS IAM Identity Center (enterprise)" }
                             (device("Identity Center login", html! {
                                 input type="hidden" name="auth_method" value="idc";
                                 div.form-grid style="margin:8px 0" {
@@ -439,13 +462,13 @@ pub async fn detail(State(state): State<AppState>, Path(id): Path<String>, Query
                     }
                 }
             }
-            div.actions { a.btn href="/dashboard/providers" { "← All providers" } }
+            div.actions { (super::live_pill()) a.btn href="/dashboard/providers" { "All providers" } }
         }
-        @if !p.notice.is_empty() { div.flash style="background:var(--panel-2)" { (p.notice) } }
-        @if free { div.flash.ok { "This provider needs no account — requests to " code { (p.alias) "/<model>" } " work out of the box." } }
+        @if !p.notice.is_empty() { div.flash.notice { (p.notice) } }
+        @if free { div.flash.ok { "No account needed — requests to " code { (p.alias) "/<model>" } " work out of the box." } }
 
         div.card {
-            div.card-head { h2 { "Connections" } span.muted.small { (conns.len()) " configured" } }
+            div.card-head { h2 { "Accounts" } span.muted.small data-region="conn-count" { (conns.len()) " configured" } }
             @if conns.is_empty() {
                 div.empty { @if free { "Optional — add a connection only to route through a proxy." } @else { "No connections yet. Add one below." } }
             } @else {
@@ -463,7 +486,7 @@ pub async fn detail(State(state): State<AppState>, Path(id): Path<String>, Query
                                 @if let Some(e) = c["expiresAt"].as_str() { div.small.muted { "expires " (e.get(..16).unwrap_or(e).replace('T', " ")) } }
                             }
                             td.num { (c["priority"]) }
-                            td { (status_cell(c)) }
+                            td data-region=(format!("cs-{cid}")) { (status_cell(c)) }
                             td { div.actions {
                                 form.inline method="post" action=(format!("/dashboard/connections/{cid}/test")) { button.btn.sm type="submit" { "Test" } }
                                 @if truthy(&c["refreshToken"]) || id == "github" || id.starts_with("vertex") { form.inline method="post" action=(format!("/dashboard/connections/{cid}/refresh")) { button.btn.sm type="submit" { "Refresh" } } }
@@ -474,7 +497,7 @@ pub async fn detail(State(state): State<AppState>, Path(id): Path<String>, Query
                         }
                         tr { td colspan="6" style="padding-top:0" {
                             details.edit {
-                                summary.small.muted { "Edit ▸" }
+                                summary.small.muted { "Edit" }
                                 form method="post" action=(format!("/dashboard/connections/{cid}/update")) {
                                     div.form-grid {
                                         div { label { "Name" } input type="text" name="name" value=(c["name"].as_str().unwrap_or("")); }
@@ -539,7 +562,7 @@ pub async fn detail(State(state): State<AppState>, Path(id): Path<String>, Query
                         @for m in &custom { div.copy-row style="padding:2px 0" { span.mono.small { (p.alias) "/" (m) } span.badge.accent { "custom" } (super::copy_button(&format!("{}/{m}", p.alias))) } }
                     }
                     details style="margin-top:10px" {
-                        summary.small.muted { "Custom model ids ▸" }
+                        summary.small.muted { "Custom model ids" }
                         form method="post" action=(format!("/dashboard/providers/{}/custom-models", urlencode(&id))) {
                             textarea name="models" rows="4" placeholder="one model id per line" { (custom.join("\n")) }
                             div style="margin-top:8px" { button.btn.sm type="submit" { "Save" } }
@@ -549,7 +572,7 @@ pub async fn detail(State(state): State<AppState>, Path(id): Path<String>, Query
             }
         }
     };
-    layout(&p.name, Nav::Providers, &flash, body).into_response()
+    super::page_live(&p.name, Nav::Providers, &flash, Some(format!("/dashboard/live?view=provider&id={}", urlencode(&id))), body).into_response()
 }
 
 // ---------------------------------------------------------------------------
