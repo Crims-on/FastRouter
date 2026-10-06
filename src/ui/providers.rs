@@ -169,6 +169,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
                                         option value="openai-compatible" { "OpenAI-compatible (/chat/completions)" }
                                         option value="openai-compatible-responses" { "OpenAI Responses API (/responses)" }
                                         option value="anthropic-compatible" { "Anthropic-compatible (/messages)" }
+                                        option value="custom-embedding" { "Embeddings endpoint (/embeddings)" }
                                     } }
                                     div { label { "Name" } input type="text" name="name" required placeholder="My LM Studio"; }
                                     div { label { "Model prefix " span.hint { "— clients call " code { "prefix/model" } } } input type="text" name="prefix" required pattern="[A-Za-z0-9_.\\-]+" placeholder="lmstudio"; }
@@ -870,6 +871,7 @@ pub async fn create_node(State(state): State<AppState>, Form(f): Form<HashMap<St
     let (node_type, api_type, idp) = match ty {
         "anthropic-compatible" => ("anthropic-compatible", "chat", "anthropic-compatible"),
         "openai-compatible-responses" => ("openai-compatible", "responses", "openai-compatible-responses"),
+        "custom-embedding" => ("custom-embedding", "embedding", "custom-embedding"),
         _ => ("openai-compatible", "chat", "openai-compatible"),
     };
     let prefix = clean_prefix(f.get("prefix").map(String::as_str).unwrap_or(""));

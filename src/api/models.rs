@@ -46,6 +46,9 @@ fn infer_kind(id: &str) -> &'static str {
 }
 
 pub fn provider_kinds(id: &str) -> Vec<String> {
+    if id.starts_with("custom-embedding-") {
+        return vec!["embedding".into()];
+    }
     let m = REG.media(id);
     match m["serviceKinds"].as_array() {
         Some(a) if !a.is_empty() => a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect(),

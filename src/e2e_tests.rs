@@ -365,6 +365,11 @@ async fn dashboard_flow() {
         let (st, body) = post_json(&format!("{}/v1/chat/completions", e.base), json!({"model": m, "messages": [{"role": "user", "content": "hey"}]})).await;
         assert_eq!(st, 200, "{m}: {body}");
     }
+    // A custom embeddings endpoint created from the dashboard.
+    c.post(format!("{}/dashboard/providers/new-node", e.base)).form(&[("ty", "custom-embedding"), ("prefix", "emb"), ("base_url", &format!("{}/v1", e.up)), ("api_key", "good")]).send().await.unwrap();
+    let (st, body) = post_json(&format!("{}/v1/embeddings", e.base), json!({"model": "emb/text-embed", "input": "hi"})).await;
+    assert_eq!(st, 200, "{body}");
+    assert!(body.contains("embedding"), "{body}");
     // OAuth: a browser login starts a pending flow; a forged state is rejected.
     let r = c.post(format!("{}/dashboard/oauth/claude/start", e.base)).form(&[("x", "1")]).send().await.unwrap();
     assert!(r.headers()["location"].to_str().unwrap().starts_with("/dashboard/oauth/flow/"));
