@@ -394,3 +394,136 @@ async fn every_media_provider_end_to_end() {
     eprintln!("{passed} provider/kind pairs passed");
     assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
 }
+
+fn fake_jwt(claims: Value) -> String {
+    use base64::Engine;
+    let e = |v: &Value| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v.to_string());
+    format!("{}.{}.sig", e(&json!({"alg": "none"})), e(&claims))
+}
+
+pub fn login_jwt() -> String {
+    fake_jwt(json!({"email": "user@example.com", "sub": "u-1", "exp": 4_070_908_800i64, "https://api.openai.com/auth": {"chatgpt_account_id": "acct-1", "chatgpt_plan_type": "plus"}}))
+}
+
+/// The authorization "code" a provider's redirect would carry.
+fn auth_code_for(provider: &str, a: &crate::oauth::flows::AuthStart) -> String {
+    use base64::Engine;
+    match provider {
+        "zed" => {
+            use rsa::pkcs1::DecodeRsaPrivateKey;
+            let key = rsa::RsaPrivateKey::from_pkcs1_pem(&a.code_verifier).unwrap();
+            let ct = key.to_public_key().encrypt(&mut rsa::rand_core::OsRng, rsa::Oaep::new::<sha2_010::Sha256>(), b"zed-access-token").unwrap();
+            format!("?user_id=42&access_token={}", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(ct))
+        }
+        "xiaomi-mimo" => {
+            use aes_gcm::aead::{Aead, KeyInit};
+            use sha2::Digest;
+            let q = a.auth_url.split_once('?').unwrap().1;
+            let pk = crate::oauth::flows::url_pairs(q).into_iter().find(|(k, _)| k == "pk").unwrap().1;
+            let spki = base64::engine::general_purpose::STANDARD.decode(pk).unwrap();
+            let client_pub: [u8; 32] = spki[12..].try_into().unwrap();
+            let eph = x25519_dalek::StaticSecret::random_from_rng(rsa::rand_core::OsRng);
+            let eph_pub = x25519_dalek::PublicKey::from(&eph);
+            let shared = eph.diffie_hellman(&x25519_dalek::PublicKey::from(client_pub));
+            let key = sha2::Sha256::digest(shared.as_bytes());
+            let nonce = [7u8; 12];
+            let ct = aes_gcm::Aes256Gcm::new_from_slice(&key).unwrap().encrypt(aes_gcm::Nonce::from_slice(&nonce), br#"{"uid":"42","sk":"sk-mimo"}"#.as_ref()).unwrap();
+            let mut payload = nonce.to_vec();
+            payload.extend_from_slice(eph_pub.as_bytes());
+            payload.extend_from_slice(&ct);
+            base64::engine::general_purpose::STANDARD.encode(payload)
+        }
+        "kimchi" => "kimchi-token".into(),
+        _ => "auth-code-123".into(),
+    }
+}
+
+/// Browser + device logins for every OAuth provider: start, exchange or
+/// poll against the mock, then store the connection.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn every_oauth_login_end_to_end() {
+    use crate::oauth::flows::{self, Flow, Poll};
+    mock_upstream().await;
+    let mut failures = vec![];
+    let mut passed = 0;
+    let mut ids: Vec<String> = REG.entries.iter().filter_map(|e| e["id"].as_str().map(str::to_owned)).collect();
+    ids.push("kimi-coding".into());
+    for id in ids {
+        if let Ok(only) = std::env::var("ONLY_PROVIDER") {
+            if only.split(',').all(|o| o != id) {
+                continue;
+            }
+        }
+        let Some(f) = flows::flow(&id) else { continue };
+        let db = Db::open_in_memory().unwrap();
+        let res: Result<Value, String> = async {
+            match f {
+                Flow::AuthCode { .. } | Flow::BrowserToken => {
+                    let meta = if id == "gitlab" { json!({"clientId": "gl-client"}) } else { json!({}) };
+                    let a = flows::start_auth(&id, "http://localhost:20128/callback", meta).await?;
+                    flows::exchange(&id, &auth_code_for(&id, &a), &a).await
+                }
+                Flow::Device => {
+                    let d = flows::device_start(&id, &json!({})).await?;
+                    if d.device_code.is_empty() && d.extra.is_null() {
+                        return Err("device_start returned no device code".into());
+                    }
+                    match flows::device_poll(&id, &d).await {
+                        Poll::Done(t) => Ok(t),
+                        Poll::Pending => Err("still pending".into()),
+                        Poll::Error(e) => Err(e),
+                    }
+                }
+                Flow::Import => flows::import(&id, "token", &json!({"accessToken": format!("user_01ABC::{}", login_jwt()), "machineId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"})).await,
+            }
+        }
+        .await;
+        match res.and_then(|t| flows::save_connection(&db, &id, &t).map_err(|e| e.to_string())) {
+            Ok(cid) => {
+                let c = db.get_connection(&cid).unwrap();
+                if crate::exec::api_key_or_token(&crate::chat::accounts::credentials_from_connection(&c)).is_empty() {
+                    failures.push(format!("{id}: saved connection has no token: {c}"));
+                } else {
+                    passed += 1;
+                }
+            }
+            Err(e) => failures.push(format!("{id}: {}", e.chars().take(300).collect::<String>())),
+        }
+    }
+    eprintln!("{passed} logins passed");
+    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+}
+
+/// Token refresh for every OAuth provider that issues refresh tokens.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn every_oauth_refresh_end_to_end() {
+    mock_upstream().await;
+    let mut failures = vec![];
+    let mut passed = 0;
+    let mut ids: Vec<String> = REG.entries.iter().filter(|e| e["authType"] == "oauth" || e["category"] == "oauth").filter_map(|e| e["id"].as_str().map(str::to_owned)).collect();
+    ids.extend(["gemini-cli", "kiro", "kimi-coding"].map(String::from));
+    for id in ids {
+        if let Ok(only) = std::env::var("ONLY_PROVIDER") {
+            if only.split(',').all(|o| o != id) {
+                continue;
+            }
+        }
+        // These sign in with long-lived tokens/keys and never refresh.
+        if matches!(id.as_str(), "zed" | "cursor" | "qoder" | "qoder-cn" | "kilocode" | "kimchi" | "xiaomi-mimo" | "muse" | "glm") {
+            continue;
+        }
+        let mut creds = crate::chat::accounts::credentials_from_connection(&fake_connection(&id));
+        creds["providerSpecificData"]["authMethod"] = json!("builder-id");
+        creds["providerSpecificData"]["clientId"] = json!("ci-1");
+        creds["providerSpecificData"]["clientSecret"] = json!("cs-1");
+        if id == "gitlab" {
+            creds["providerSpecificData"] = json!({"authKind": "oauth", "baseUrl": "https://gitlab.com", "clientId": "gl-client", "redirectUri": "http://localhost:20128/callback", "codeVerifier": "v"});
+        }
+        match crate::oauth::refresh::refresh_for_provider(&id, &creds).await {
+            Some(r) if !crate::oauth::refresh::is_unrecoverable(&r) && (r["accessToken"].as_str().is_some_and(|s| !s.is_empty()) || r["copilotToken"].as_str().is_some_and(|s| !s.is_empty()) || r["providerSpecificData"]["copilotToken"].as_str().is_some_and(|s| !s.is_empty())) => passed += 1,
+            other => failures.push(format!("{id}: {other:?}")),
+        }
+    }
+    eprintln!("{passed} refreshes passed");
+    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+}

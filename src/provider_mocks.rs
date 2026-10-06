@@ -238,10 +238,80 @@ fn media(method: &Method, h: &Hit, body: &Value) -> Option<Response> {
     None
 }
 
+fn token() -> Value {
+    let jwt = crate::provider_tests::login_jwt();
+    json!({"access_token": jwt, "refresh_token": "r-1", "expires_in": 3600, "id_token": jwt, "token_type": "Bearer", "scope": "openid email"})
+}
+
+fn device() -> Value {
+    json!({"device_code": "dc-1", "user_code": "ABCD-1234", "verification_uri": "https://example.com/device", "verification_uri_complete": "https://example.com/device?code=ABCD-1234", "interval": 1, "expires_in": 600})
+}
+
+/// OAuth / login endpoints of every subscription provider.
+fn oauth(method: &Method, h: &Hit, body: &Value) -> Option<Response> {
+    let (p, host) = (h.path.as_str(), h.host.as_str());
+    let get = *method == Method::GET;
+    let token_paths = [
+        ("api.anthropic.com", "/v1/oauth/token"),
+        ("auth.openai.com", "/oauth/token"),
+        ("auth.x.ai", "/oauth2/token"),
+        ("oauth2.googleapis.com", "/token"),
+        ("gitlab.com", "/oauth/token"),
+        ("github.com", "/login/oauth/access_token"),
+        ("auth.kimi.com", "/api/oauth/token"),
+        ("auth.meta.com", "/oidc/device/token/"),
+        ("iflow.cn", "/oauth/token"),
+    ];
+    if token_paths.iter().any(|(hh, pp)| host == *hh && p == *pp) {
+        return Some(js(token()));
+    }
+    let device_paths = [("github.com", "/login/device/code"), ("auth.x.ai", "/oauth2/device/code"), ("auth.meta.com", "/oidc/device/authorization/"), ("auth.kimi.com", "/api/oauth/device_authorization")];
+    if device_paths.iter().any(|(hh, pp)| host == *hh && p == *pp) {
+        return Some(js(device()));
+    }
+    match (host, p) {
+        ("www.googleapis.com", "/oauth2/v1/userinfo") => Some(js(json!({"email": "user@example.com", "name": "User"}))),
+        ("api.github.com", "/user") => Some(js(json!({"login": "octocat", "id": 1, "name": "Octo", "email": "octo@example.com"}))),
+        ("api.github.com", "/copilot_internal/v2/token") => Some(js(json!({"token": "copilot-token", "expires_at": 4_070_908_800i64, "refresh_in": 1500}))),
+        ("gitlab.com", "/api/v4/user") => Some(js(json!({"username": "gl", "email": "gl@example.com", "name": "GL"}))),
+        ("iflow.cn", "/api/oauth/getUserInfo") => Some(js(json!({"success": true, "data": {"apiKey": "iflow-key", "email": "i@example.com", "nickname": "I"}}))),
+        ("api.cline.bot", "/api/v1/auth/refresh") => Some(js(json!({"success": true, "data": {"accessToken": "cline-token-2", "refreshToken": "r-2", "expiresAt": "2099-01-01T00:00:00Z"}}))),
+        (_, "/v2/plugin/auth/token/refresh") => Some(js(json!({"code": 0, "data": {"accessToken": "cb-token-2", "refreshToken": "r-2", "expiresIn": 3600}}))),
+        ("api.cline.bot", "/api/v1/auth/token") => Some(js(json!({"success": true, "data": {"accessToken": "cline-token", "refreshToken": "r-1", "expiresAt": "2099-01-01T00:00:00Z", "userInfo": {"email": "c@example.com"}}}))),
+        ("cli-chat-proxy.grok.com", "/v1/user") => Some(js(json!({"email": "g@example.com", "userId": "u-1", "firstName": "G"}))),
+        ("api.meta.ai", "/muse-code/key") => Some(js(json!({"api_key": "muse-key", "user_email": "m@example.com", "is_subs_active": true, "subs_tier_name": "pro"}))),
+        ("api.kilo.ai", "/api/device-auth/codes") => Some(js(json!({"code": "KC1", "verificationUrl": "https://example.com/kilo", "expiresIn": 300}))),
+        ("api.kilo.ai", "/api/device-auth/codes/KC1") => Some(js(json!({"status": "approved", "token": "kilo-token", "userEmail": "k@example.com"}))),
+        ("api.kilo.ai", "/api/profile") => Some(js(json!({"organizations": [{"id": "org-1"}]}))),
+        (_, "/v2/plugin/auth/state") => Some(js(json!({"code": 0, "data": {"state": "st-1", "authUrl": "https://example.com/cb"}}))),
+        (_, "/v2/plugin/auth/token") if get => Some(js(json!({"code": 0, "data": {"accessToken": "cb-token", "refreshToken": "r-1", "expiresIn": 3600}}))),
+        (_, "/api/v1/deviceToken/poll") => Some(js(json!({"token": "qoder-token", "refresh_token": "r-1", "expires_in": 86400, "user_id": "7"}))),
+        (_, "/api/v1/userinfo") => Some(js(json!({"email": "q@example.com", "name": "Q", "organization_id": "o"}))),
+        ("oidc.us-east-1.amazonaws.com", "/client/register") => Some(js(json!({"clientId": "ci-1", "clientSecret": "cs-1", "clientSecretExpiresAt": 4_070_908_800i64}))),
+        ("oidc.us-east-1.amazonaws.com", "/device_authorization") => Some(js(json!({"deviceCode": "dc-1", "userCode": "ABCD", "verificationUri": "https://example.com/aws", "verificationUriComplete": "https://example.com/aws?c=ABCD", "interval": 1, "expiresIn": 600}))),
+        ("oidc.us-east-1.amazonaws.com", "/token") => Some(js(json!({"accessToken": crate::provider_tests::login_jwt(), "refreshToken": "r-1", "expiresIn": 3600, "profileArn": "arn:aws:codewhisperer:us-east-1:1:profile/x"}))),
+        ("zcode.z.ai", "/api/v1/oauth/cli/init") => Some(js(json!({"code": 0, "data": {"flow_id": "f1", "authorize_url": "https://example.com/z", "poll_interval_sec": 1}}))),
+        ("zcode.z.ai", "/api/v1/oauth/cli/poll/f1") => Some(js(json!({"code": 0, "data": {"status": "ready", "zai": {"access_token": "zat", "refresh_token": "zrt"}, "token": "zjwt", "user": {"name": "Z", "email": "z@example.com", "user_id": "1"}}}))),
+        ("api.z.ai", "/api/auth/z/login") => Some(js(json!({"code": 200, "data": {"access_token": "biz"}}))),
+        ("api.z.ai", "/api/biz/customer/getCustomerInfo") => Some(js(json!({"code": 200, "data": {"organizations": [{"organizationId": "o1", "organizationName": "Default", "projects": [{"projectId": "p1", "projectName": "Default", "projectType": 1}]}]}}))),
+        ("api.z.ai", "/api/biz/v1/organization/o1/projects/p1/api_keys") => Some(js(json!({"code": 200, "data": [{"name": "zcode-api-key", "apiKey": "ak"}]}))),
+        ("api.z.ai", "/api/biz/v1/organization/o1/projects/p1/api_keys/copy/ak") => Some(js(json!({"code": 200, "data": {"secretKey": "sk"}}))),
+        ("api.cast.ai", _) => Some(js(json!({"providers": []}))),
+        ("app.kimchi.dev", "/api/v1/me") => Some(js(json!({"id": 5, "email": "kim@example.com", "username": "kim"}))),
+        _ => {
+            let _ = body;
+            None
+        }
+    }
+}
+
 /// Per-protocol upstream replies.
 pub fn special(method: &Method, h: &Hit) -> Option<Response> {
     let p = h.path.as_str();
     let body: Value = serde_json::from_slice(&h.body).unwrap_or(Value::Null);
+    if let Some(r) = oauth(method, h, &body) {
+        return Some(r);
+    }
     if let Some(r) = media(method, h, &body) {
         return Some(r);
     }

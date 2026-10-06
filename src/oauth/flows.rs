@@ -429,7 +429,7 @@ pub async fn exchange(provider: &str, code: &str, a: &AuthStart) -> Result<Value
                 _ => json!({}),
             };
             let email = user["email"].as_str().filter(|s| !s.is_empty()).or_else(|| user["public_email"].as_str()).unwrap_or("");
-            Ok(json!({"accessToken": v["access_token"], "refreshToken": v["refresh_token"], "expiresIn": v["expires_in"], "scope": v["scope"], "email": email, "providerSpecificData": {"username": user["username"].as_str().unwrap_or(""), "email": email, "name": user["name"].as_str().unwrap_or(""), "baseUrl": base, "clientId": cid, "authKind": "oauth"}}))
+            Ok(json!({"accessToken": v["access_token"], "refreshToken": v["refresh_token"], "expiresIn": v["expires_in"], "scope": v["scope"], "email": email, "providerSpecificData": {"username": user["username"].as_str().unwrap_or(""), "email": email, "name": user["name"].as_str().unwrap_or(""), "baseUrl": base, "clientId": cid, "clientSecret": if secret.is_empty() { Value::Null } else { json!(secret) }, "redirectUri": redirect, "codeVerifier": verifier, "authKind": "oauth"}}))
         }
         "kimchi" => {
             let tok = code.trim();

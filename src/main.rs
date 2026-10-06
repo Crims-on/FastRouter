@@ -57,6 +57,9 @@ async fn main() -> anyhow::Result<()> {
     let db = db::Db::open(&config.data_dir.join("db").join("data.sqlite"))?;
     auth::bootstrap(&db, &config.initial_password)?;
     secrets::init(&db);
+    for note in secrets::discover(&db).await {
+        tracing::info!("{note}");
+    }
     let state = AppState { db: Arc::new(db), config: Arc::new(config.clone()) };
     let addr = format!("{}:{}", config.host, config.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

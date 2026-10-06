@@ -127,7 +127,7 @@ pub async fn page(State(state): State<AppState>, Query(flash): Query<Flash>) -> 
             }
             div.card {
                 h2 { "Google OAuth clients" }
-                p.small.muted { "Gemini CLI and Antigravity logins need the public OAuth client of those tools. Set them here or via environment variables (" code { "GOOGLE_OAUTH_CLIENT_ID" } ", " code { "GOOGLE_OAUTH_CLIENT_SECRET" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_ID" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_SECRET" } "). Changes apply after a restart." }
+                p.small.muted { "Gemini CLI and Antigravity sign in with those tools' own public OAuth clients. FastRouter finds them automatically at startup: Gemini CLI's from a local install or Google's " code { "@google/gemini-cli-core" } " npm package, Antigravity's from a local Antigravity app. You can also set them here or with the environment variables " code { "GOOGLE_OAUTH_CLIENT_ID" } ", " code { "GOOGLE_OAUTH_CLIENT_SECRET" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_ID" } ", " code { "ANTIGRAVITY_OAUTH_CLIENT_SECRET" } ". Changes apply after a restart." }
                 form method="post" action="/dashboard/settings/oauth-clients" {
                     div.form-grid {
                         @for name in crate::secrets::NAMES {

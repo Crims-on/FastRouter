@@ -495,6 +495,7 @@ pub async fn refresh_for_provider(provider: &str, creds: &Value) -> Option<Value
         "codebuddy-cn" => refresh_codebuddy("codebuddy-cn", "copilot.tencent.com", &rt).await,
         "codebuddy-intl" => refresh_codebuddy("codebuddy-intl", "www.codebuddy.ai", &rt).await,
         "cline" | "clinepass" => refresh_cline(&rt).await,
+        "gitlab" => refresh_gitlab(&rt, creds).await,
         "kimi" | "kimi-coding" => refresh_access_token("kimi", &rt, creds).await,
         other => refresh_access_token(other, &rt, creds).await,
     }?;
@@ -502,6 +503,36 @@ pub async fn refresh_for_provider(provider: &str, creds: &Value) -> Option<Value
         out["projectId"] = creds["projectId"].clone();
     }
     Some(out)
+}
+
+/// GitLab OAuth (self-managed instances too): the token endpoint, client and
+/// PKCE verifier come from the connection created at sign-in.
+async fn refresh_gitlab(rt: &str, creds: &Value) -> Option<Value> {
+    let psd = &creds["providerSpecificData"];
+    if psd["authKind"] != "oauth" {
+        return None;
+    }
+    let base = psd["baseUrl"].as_str().filter(|s| !s.is_empty()).unwrap_or("https://gitlab.com").trim_end_matches('/').to_string();
+    let mut pairs: Vec<(&str, String)> = vec![("grant_type", "refresh_token".into()), ("refresh_token", rt.into()), ("client_id", psd["clientId"].as_str().unwrap_or("").into())];
+    for (k, f) in [("client_secret", "clientSecret"), ("redirect_uri", "redirectUri"), ("code_verifier", "codeVerifier")] {
+        if let Some(v) = psd[f].as_str().filter(|s| !s.is_empty()) {
+            pairs.push((k, v.into()));
+        }
+    }
+    let body = pairs.iter().map(|(k, v)| format!("{k}={}", crate::oauth::enc(v))).collect::<Vec<_>>().join("&");
+    let url = format!("{base}/oauth/token");
+    let creds = creds.clone();
+    dedup("gitlab", rt, || async move {
+        let r = post(&creds, &url, "application/x-www-form-urlencoded", body, &[]).await;
+        if let Ok((st, b)) = &r {
+            if (400..500).contains(st) && b.contains("invalid_grant") {
+                return Some(json!({"error": "invalid_grant"}));
+            }
+        }
+        let v = ok_json(r, "gitlab")?;
+        Some(json!({"accessToken": v["access_token"].as_str()?, "refreshToken": v["refresh_token"], "expiresIn": v["expires_in"]}))
+    })
+    .await
 }
 
 pub fn is_unrecoverable(r: &Value) -> bool {

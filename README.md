@@ -52,7 +52,12 @@ docker run -p 20128:20128 -v fastrouter-data:/data -e INITIAL_PASSWORD=change-me
 
 ### Google OAuth clients
 
-Gemini CLI and Antigravity sign in with Google using those tools' own public OAuth clients. They are not shipped in this repository; set them as environment variables (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `ANTIGRAVITY_OAUTH_CLIENT_ID`, `ANTIGRAVITY_OAUTH_CLIENT_SECRET`) or under **Settings → Google OAuth clients**.
+Gemini CLI and Antigravity sign in with Google using those tools' own public OAuth clients, which are not shipped in this repository. At startup FastRouter fills them in automatically and caches them:
+
+- **Gemini CLI:** from a local `@google/gemini-cli` install, or else from Google's published `@google/gemini-cli-core` npm package.
+- **Antigravity:** from a local Antigravity app install.
+
+You can also set them explicitly with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `ANTIGRAVITY_OAUTH_CLIENT_ID`, `ANTIGRAVITY_OAUTH_CLIENT_SECRET`, or under **Settings → Google OAuth clients**.
 
 ## Using it
 
@@ -97,9 +102,20 @@ src/
 ## Development
 
 ```bash
-cargo test     # unit tests + end-to-end tests against a mock upstream
+cargo test
 ```
+
+Besides unit tests, the suite runs every provider end to end: in test builds every outbound hostname resolves to a local HTTPS mock that speaks each provider's wire protocol (OpenAI, Anthropic, Responses, Gemini/Cloud Code, Ollama, Kiro's AWS event stream, Cursor's ConnectRPC, Qoder, Zed, grok.com, perplexity.ai, CommandCode, and all media APIs). It covers:
+
+- all chat providers through OpenAI (streaming and not), Anthropic and Responses clients;
+- every media provider and service kind (embeddings, images, TTS, STT, search, fetch, video, System One);
+- every OAuth login (browser, device code, import) and every token refresh;
+- the dashboard (login, adding providers and connections, combos, aliases, settings).
+
+The `local-device` TTS check needs `espeak-ng` (or macOS `say`) and is skipped without it.
 
 ## Credits
 
 Provider registry data, translation rules and executor behaviour are ported from [9router](https://github.com/decolua/9router) (MIT).
+
+Providers 9router ships but has switched off (Trae, Windsurf and Devin CLI are commented out of its registry) are not included.
