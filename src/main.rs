@@ -15,6 +15,7 @@ mod db;
 mod exec;
 mod jsv;
 mod media;
+mod mediaapi;
 mod oauth;
 mod providers;
 mod registry;

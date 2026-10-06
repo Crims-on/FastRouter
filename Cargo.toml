@@ -9,7 +9,7 @@ anyhow = "1.0.104"
 argon2 = "0.6.0"
 async-stream = "0.3.6"
 async-trait = "0.1.92"
-axum = "0.8"
+axum = { version = "0.8", features = ["multipart"] }
 axum-extra = { version = "0.12.6", features = ["cookie", "form"] }
 base64 = "0.23.1"
 bytes = "1.12.1"
@@ -31,6 +31,7 @@ sha1 = "0.10"
 sha2 = "0.11.0"
 sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] }
 tokio = { version = "1.53.2", features = ["full"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
 tower-http = { version = "0.7.1", features = ["compression-gzip", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

@@ -140,6 +140,17 @@ async fn env() -> Env {
             .route("/v1/messages", post(anthropic_messages))
             .route("/v1/responses", post(responses))
             .route("/v1beta/models/{p}", post(gemini))
+            .route("/v1/embeddings", post(|b: axum::Json<Value>| async move { axum::Json(json!({"object": "list", "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2]}], "model": b["model"], "usage": {"prompt_tokens": 3, "total_tokens": 3}})) }))
+            .route("/v1/images/generations", post(|b: axum::Json<Value>| async move { axum::Json(json!({"created": 1, "data": [{"b64_json": "aGVsbG8=", "revised_prompt": b["prompt"]}]})) }))
+            .route("/v1/audio/speech", post(|b: axum::Json<Value>| async move { assert_eq!(b["voice"], "nova"); ([("content-type", "audio/mpeg")], vec![7u8; 200]) }))
+            .route("/v1/audio/transcriptions", post(|mut mp: axum::extract::Multipart| async move {
+                let mut model = String::new();
+                let mut size = 0;
+                while let Some(f) = mp.next_field().await.unwrap() {
+                    if f.name() == Some("model") { model = f.text().await.unwrap(); } else { size = f.bytes().await.unwrap().len(); }
+                }
+                axum::Json(json!({"text": format!("{model}:{size}")}))
+            }))
             .with_state(mock.clone()),
     )
     .await;
@@ -291,4 +302,32 @@ async fn errors_and_auth() {
     e.db.set_setting_json("settings", &json!({"requireApiKey": true})).unwrap();
     let (s, _) = post_json(&format!("{}/v1/chat/completions", e.base), json!({"model": "mock/llama", "messages": [{"role": "user", "content": "a"}]})).await;
     assert_eq!(s, 401);
+}
+
+#[tokio::test]
+async fn media_endpoints_via_custom_node() {
+    let e = env().await;
+    let (s, t) = post_json(&format!("{}/v1/embeddings", e.base), json!({"model": "mock/emb", "input": "hi"})).await;
+    assert_eq!(s, 200, "{t}");
+    assert!(t.contains("0.1"));
+    let (s, t) = post_json(&format!("{}/v1/images/generations", e.base), json!({"model": "mock/img", "prompt": "cat"})).await;
+    assert_eq!(s, 200, "{t}");
+    assert!(t.contains("aGVsbG8="));
+    let r = reqwest::Client::new().post(format!("{}/v1/images/generations?response_format=binary", e.base)).json(&json!({"model": "mock/img", "prompt": "cat"})).send().await.unwrap();
+    assert_eq!(r.headers()["content-type"], "image/png");
+    assert_eq!(r.bytes().await.unwrap().as_ref(), b"hello");
+    let r = reqwest::Client::new().post(format!("{}/v1/audio/speech", e.base)).json(&json!({"model": "mock/tts-1/nova", "input": "hello"})).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.bytes().await.unwrap().len(), 200);
+    let form = reqwest::multipart::Form::new().text("model", "mock/whisper-1").part("file", reqwest::multipart::Part::bytes(vec![1u8; 42]).file_name("a.wav"));
+    let r = reqwest::Client::new().post(format!("{}/v1/audio/transcriptions", e.base)).multipart(form).send().await.unwrap();
+    let t = r.text().await.unwrap();
+    assert!(t.contains("whisper-1:42"), "{t}");
+    // search: unknown provider and validation
+    let (s, _) = post_json(&format!("{}/v1/search", e.base), json!({"provider": "nope", "query": "x"})).await;
+    assert_eq!(s, 400);
+    let (s, t) = post_json(&format!("{}/v1/web/fetch", e.base), json!({"provider": "firecrawl", "url": "http://127.0.0.1/x"})).await;
+    assert_eq!(s, 400, "{t}");
+    let r = reqwest::get(format!("{}/v1/models/embedding", e.base)).await.unwrap().text().await.unwrap();
+    assert!(r.contains("\"object\":\"list\""), "{r}");
 }
