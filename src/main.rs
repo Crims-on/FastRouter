@@ -27,6 +27,10 @@ mod ui;
 
 #[cfg(test)]
 mod e2e_tests;
+#[cfg(test)]
+mod provider_mocks;
+#[cfg(test)]
+mod provider_tests;
 
 use std::sync::Arc;
 

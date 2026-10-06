@@ -107,13 +107,46 @@ pub struct ParsedError {
 
 static CLIENTS: LazyLock<Mutex<HashMap<String, reqwest::Client>>> = LazyLock::new(Default::default);
 
+/// Test hook: when set, every hostname resolves to this mock upstream (which
+/// serves a self-signed certificate) and proxies are bypassed.
+#[cfg(test)]
+pub static TEST_UPSTREAM: std::sync::OnceLock<std::net::SocketAddr> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+struct AllTo(std::net::SocketAddr);
+
+#[cfg(test)]
+impl reqwest::dns::Resolve for AllTo {
+    fn resolve(&self, _name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let a = self.0;
+        Box::pin(async move { Ok(Box::new(std::iter::once(a)) as reqwest::dns::Addrs) })
+    }
+}
+
+/// `reqwest::Client::builder()` with the test hook applied.
+pub fn client_builder() -> reqwest::ClientBuilder {
+    let b = reqwest::Client::builder();
+    #[cfg(test)]
+    if let Some(a) = TEST_UPSTREAM.get() {
+        return b.no_proxy().tls_danger_accept_invalid_certs(true).dns_resolver(Arc::new(AllTo(*a)));
+    }
+    b
+}
+
+fn test_mode() -> bool {
+    #[cfg(test)]
+    return TEST_UPSTREAM.get().is_some();
+    #[cfg(not(test))]
+    false
+}
+
 pub fn http_client(proxy: Option<&str>) -> reqwest::Client {
-    let key = proxy.unwrap_or("").to_string();
+    let key = format!("{}{}", if test_mode() { "test:" } else { "" }, proxy.unwrap_or(""));
     let mut map = CLIENTS.lock().unwrap();
     if let Some(c) = map.get(&key) {
         return c.clone();
     }
-    let mut b = reqwest::Client::builder()
+    let mut b = client_builder()
         .connect_timeout(Duration::from_secs(30))
         .pool_idle_timeout(Duration::from_secs(90))
         .redirect(reqwest::redirect::Policy::limited(10));
@@ -139,6 +172,9 @@ pub fn client_for(creds: &Value) -> reqwest::Client {
 }
 
 pub fn no_redirect_client() -> reqwest::Client {
+    if test_mode() {
+        return client_builder().redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    }
     static C: LazyLock<reqwest::Client> = LazyLock::new(|| {
         reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(30))

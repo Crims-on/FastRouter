@@ -124,7 +124,7 @@ pub fn url_encode_component(s: &str) -> String {
 fn proxy_client(psd: &Value, region: &str, redirect: bool) -> reqwest::Client {
     // CN is always direct.
     let proxy = if region == "cn" { None } else { psd["connectionProxyEnabled"].as_bool().filter(|b| *b).and(psd["connectionProxyUrl"].as_str()) };
-    let mut b = reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(20));
+    let mut b = crate::exec::client_builder().connect_timeout(std::time::Duration::from_secs(20));
     if !redirect {
         b = b.redirect(reqwest::redirect::Policy::none());
     }

@@ -209,7 +209,7 @@ async fn local_device(text: &str, model: &str) -> Result<Audio, String> {
         if cfg!(target_os = "macos") {
             let aiff = dir.join("out.aiff");
             let mut args: Vec<String> = vec![];
-            if !model.is_empty() {
+            if !model.is_empty() && model != "default" {
                 args.extend(["-v".into(), model.into()]);
             }
             args.extend(["-o".into(), aiff.to_string_lossy().into(), text.into()]);
@@ -225,15 +225,19 @@ async fn local_device(text: &str, model: &str) -> Result<Audio, String> {
             // Linux/Windows: espeak-ng (or espeak) → wav → mp3.
             let wav = dir.join("out.wav");
             let mut ok = false;
-            for bin in ["espeak-ng", "espeak"] {
-                let mut c = tokio::process::Command::new(bin);
-                if !model.is_empty() {
-                    c.args(["-v", model]);
-                }
-                if let Ok(st) = c.args(["-w", &wav.to_string_lossy(), text]).status().await {
-                    if st.success() {
-                        ok = true;
-                        break;
+            // Try the requested voice first, then the engine's default voice.
+            let voices: Vec<Option<&str>> = if model.is_empty() || model == "default" { vec![None] } else { vec![Some(model), None] };
+            'outer: for bin in ["espeak-ng", "espeak"] {
+                for v in &voices {
+                    let mut c = tokio::process::Command::new(bin);
+                    if let Some(v) = v {
+                        c.args(["-v", v]);
+                    }
+                    if let Ok(st) = c.args(["-w", &wav.to_string_lossy(), text]).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().await {
+                        if st.success() {
+                            ok = true;
+                            break 'outer;
+                        }
                     }
                 }
             }
@@ -337,24 +341,28 @@ async fn openrouter_tts(text: &str, model: &str, creds: &Value) -> Result<Audio,
         let v: Value = r.json().await.unwrap_or(Value::Null);
         return Err(v["error"]["message"].as_str().map(str::to_owned).unwrap_or(format!("OpenRouter TTS failed: {s}")));
     }
-    let mut chunks = String::new();
+    // Each delta carries its own base64 segment (padded independently), so
+    // decode per chunk and re-encode the joined bytes.
+    let mut audio: Vec<u8> = vec![];
     let mut lp = crate::sse::LineParser::default();
     let mut s = r.bytes_stream();
     while let Some(Ok(c)) = s.next().await {
         for l in lp.push(&c) {
-            if let Some(d) = l.strip_prefix("data: ").filter(|d| *d != "[DONE]") {
+            if let Some(d) = l.strip_prefix("data:").map(str::trim).filter(|d| *d != "[DONE]") {
                 if let Ok(v) = serde_json::from_str::<Value>(d) {
                     if let Some(a) = v["choices"][0]["delta"]["audio"]["data"].as_str() {
-                        chunks.push_str(a);
+                        if let Ok(b) = B64.decode(a.trim()) {
+                            audio.extend_from_slice(&b);
+                        }
                     }
                 }
             }
         }
     }
-    if chunks.is_empty() {
+    if audio.is_empty() {
         return Err("OpenRouter TTS returned no audio data".into());
     }
-    Ok(Audio { base64: chunks, format: "wav".into() })
+    Ok(Audio { base64: B64.encode(&audio), format: "wav".into() })
 }
 
 fn gemini_tts_models() -> Vec<String> {

@@ -145,7 +145,14 @@ pub async fn handle_chat_core(a: CoreArgs) -> CoreResult {
     let model_target = registry::get_model_target_format(&alias, &model);
     let supported = registry::get_model_supported_formats(&alias, &model);
     let runtime_transport = resolve_transport(&provider, &source);
-    let use_transport = if supported.as_ref().map(|s| s.iter().any(|f| f == &source)).unwrap_or(true) { runtime_transport } else { None };
+    let use_transport = if supported.as_ref().map(|s| s.iter().any(|f| f == &source)).unwrap_or(true) {
+        runtime_transport
+    } else {
+        // The model only speaks other formats: use the transport serving the
+        // model's target format (e.g. Muse Spark → /v1/responses) rather than
+        // the provider's default endpoint.
+        model_target.as_deref().and_then(|t| resolve_transport(&provider, t))
+    };
     let target = use_transport
         .as_ref()
         .and_then(|t| t["format"].as_str().map(str::to_owned))

@@ -35,6 +35,7 @@ pub(crate) enum Kind {
     Bfl,
     Runway,
     Cloudflare,
+    Topaz,
 }
 
 pub(crate) fn kind(provider: &str) -> Option<Kind> {
@@ -51,6 +52,7 @@ pub(crate) fn kind(provider: &str) -> Option<Kind> {
         "black-forest-labs" => Kind::Bfl,
         "runwayml" => Kind::Runway,
         "cloudflare-ai" => Kind::Cloudflare,
+        "topaz" => Kind::Topaz,
         p if crate::exec::is_openai_compatible(p) => Kind::OpenAi,
         p if media_cfg(p, "imageConfig")["baseUrl"].is_string() => Kind::OpenAi,
         _ => return None,
@@ -159,7 +161,7 @@ async fn build_body(k: Kind, provider: &str, model: &str, b: &Value) -> Result<B
             let (w, h) = size.split_once('x').map(|(w, h)| (w.parse().unwrap_or(512), h.parse().unwrap_or(512))).unwrap_or((512, 512));
             json!({"prompt": prompt, "width": w, "height": h, "steps": 20, "batch_size": b["n"].as_i64().unwrap_or(1)})
         }
-        Kind::ComfyUi => json!({"prompt": prompt}),
+        Kind::ComfyUi | Kind::Topaz => json!({"prompt": prompt}),
         Kind::HuggingFace => {
             let e = hf_entry(model);
             let task = if e.is_string() { "text-to-image" } else { e["task"].as_str().unwrap_or("text-to-image") };
@@ -287,6 +289,7 @@ fn build_url(k: Kind, provider: &str, model: &str, creds: &Value) -> Result<Stri
             }
         }
         Kind::Gemini => format!("{base}/{}:generateContent?key={}", model.strip_prefix("models/").unwrap_or(model), crate::oauth::enc(&key_of(creds))),
+        Kind::Topaz => TOPAZ_URL.to_string(),
         Kind::SdWebUi | Kind::ComfyUi | Kind::NanoBanana => {
             let ov = creds["providerSpecificData"]["baseUrl"].as_str().filter(|s| !s.trim().is_empty());
             ov.map(str::to_owned).unwrap_or(base)
@@ -339,7 +342,7 @@ fn headers_for(k: Kind, provider: &str, creds: &Value, multipart: bool) -> Vec<(
                 h.push(("authorization".into(), format!("Bearer {key}")));
             }
         }
-        Kind::Gemini | Kind::SdWebUi | Kind::ComfyUi => {}
+        Kind::Gemini | Kind::SdWebUi | Kind::ComfyUi | Kind::Topaz => {}
         Kind::HuggingFace | Kind::NanoBanana | Kind::Cloudflare => {
             if !key.is_empty() {
                 h.push(("authorization".into(), format!("Bearer {key}")));
@@ -569,6 +572,97 @@ async fn antigravity_image(ctx: &mut Ctx, body: &Value) -> Result<Value, String>
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
+fn comfy_checkpoint(model: &str) -> String {
+    match model {
+        "sdxl" => "sd_xl_base_1.0.safetensors".into(),
+        "flux-dev" => "flux1-dev-fp8.safetensors".into(),
+        m => m.to_string(),
+    }
+}
+
+/// Default ComfyUI text-to-image graph (API format).
+pub fn comfy_workflow(model: &str, prompt: &str, negative: &str, w: u32, h: u32, n: i64, seed: u64) -> Value {
+    let flux = model.contains("flux");
+    json!({
+        "3": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": if flux { 20 } else { 25 }, "cfg": if flux { 1.0 } else { 7.0 }, "sampler_name": "euler", "scheduler": if flux { "simple" } else { "normal" }, "denoise": 1.0, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
+        "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": comfy_checkpoint(model)}},
+        "5": {"class_type": "EmptyLatentImage", "inputs": {"width": w, "height": h, "batch_size": n.clamp(1, 8)}},
+        "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
+        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["4", 1]}},
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "fastrouter", "images": ["8", 0]}},
+    })
+}
+
+/// ComfyUI: queue a workflow (the request's `workflow`, or a default
+/// checkpoint txt2img graph), wait for it in /history, download the outputs.
+async fn comfy_generate(ctx: &Ctx, b: &Value) -> Result<Value, String> {
+    let base = ctx.creds["providerSpecificData"]["baseUrl"].as_str().map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned).unwrap_or_else(|| base_url("comfyui")).trim_end_matches('/').to_string();
+    let (w, h) = b["size"].as_str().and_then(|s| s.split_once('x')).and_then(|(a, c)| Some((a.parse().ok()?, c.parse().ok()?))).unwrap_or((1024, 1024));
+    let seed = u64::from_str_radix(&crate::jsv::rand_hex(6), 16).unwrap_or(42);
+    let workflow = if b["workflow"].is_object() {
+        b["workflow"].clone()
+    } else {
+        comfy_workflow(&ctx.model, b["prompt"].as_str().unwrap_or(""), b["negative_prompt"].as_str().unwrap_or(""), w, h, b["n"].as_i64().unwrap_or(1), seed)
+    };
+    let http = client(&ctx.creds);
+    let r = http.post(format!("{base}/prompt")).json(&json!({"prompt": workflow, "client_id": uuid::Uuid::new_v4().to_string()})).send().await.map_err(|e| e.to_string())?;
+    let st = r.status().as_u16();
+    let v: Value = r.json().await.unwrap_or(Value::Null);
+    if !(200..300).contains(&st) {
+        return Err(format!("ComfyUI rejected the workflow ({st}): {}", if v["error"]["message"].is_string() { v["error"]["message"].as_str().unwrap().to_string() } else { v.to_string() }));
+    }
+    let id = v["prompt_id"].as_str().ok_or("ComfyUI: no prompt_id returned")?.to_string();
+    let hist = poll_json(&http, &format!("{base}/history/{id}"), &[], |s| {
+        let e = &s[&id];
+        if e["status"]["status_str"] == "error" {
+            return Err("ComfyUI workflow failed".into());
+        }
+        Ok(e["outputs"].as_object().is_some_and(|o| !o.is_empty()))
+    })
+    .await?;
+    let mut data = vec![];
+    for out in hist[&id]["outputs"].as_object().into_iter().flatten().map(|(_, o)| o) {
+        for img in out["images"].as_array().into_iter().flatten() {
+            let q = format!("filename={}&subfolder={}&type={}", crate::oauth::enc(img["filename"].as_str().unwrap_or("")), crate::oauth::enc(img["subfolder"].as_str().unwrap_or("")), crate::oauth::enc(img["type"].as_str().unwrap_or("output")));
+            let r = http.get(format!("{base}/view?{q}")).send().await.map_err(|e| e.to_string())?;
+            if r.status().is_success() {
+                let bytes = r.bytes().await.map_err(|e| e.to_string())?;
+                data.push(json!({"b64_json": B64.encode(&bytes), "revised_prompt": b["prompt"]}));
+            }
+        }
+    }
+    if data.is_empty() {
+        return Err("ComfyUI finished without image outputs".into());
+    }
+    Ok(json!({"created": now_s(), "data": data}))
+}
+
+const TOPAZ_URL: &str = "https://api.topazlabs.com/image/v1/enhance";
+
+/// Topaz Labs image enhancement (upscaling) of the request's `image`.
+async fn topaz_enhance(ctx: &Ctx, b: &Value) -> Result<Value, (u16, String)> {
+    let src = hf_source_image(b).await.ok_or((400, "Topaz enhances an existing image: send it as \"image\" (URL, data URL or base64)".to_string()))?;
+    let bytes = B64.decode(src.trim()).map_err(|_| (400, "Topaz: image is not valid base64".to_string()))?;
+    let model = match ctx.model.as_str() {
+        "" | "test-model" | "default" => "Standard V2".to_string(),
+        m => m.to_string(),
+    };
+    let fmt = b["output_format"].as_str().unwrap_or("png").to_lowercase();
+    let mut form = reqwest::multipart::Form::new().part("image", reqwest::multipart::Part::bytes(bytes).file_name("image.png")).text("model", model).text("output_format", if fmt == "jpg" { "jpeg".into() } else { fmt });
+    if let Some((w, h)) = b["size"].as_str().and_then(|s| s.split_once('x')) {
+        form = form.text("output_width", w.to_string()).text("output_height", h.to_string());
+    }
+    let r = client(&ctx.creds).post(TOPAZ_URL).header("X-API-Key", key_of(&ctx.creds)).header("accept", "image/*").multipart(form).timeout(Duration::from_secs(600)).send().await.map_err(|e| (502, e.to_string()))?;
+    let st = r.status().as_u16();
+    if !(200..300).contains(&st) {
+        let t = r.text().await.unwrap_or_default();
+        return Err((st, format!("Topaz error {st}: {}", t.chars().take(300).collect::<String>())));
+    }
+    let out = r.bytes().await.map_err(|e| (502, e.to_string()))?;
+    Ok(json!({"created": now_s(), "data": [{"b64_json": B64.encode(&out)}]}))
+}
+
 async fn core(mut ctx: Ctx, body: Value, stream_to_client: bool, binary: bool) -> MediaResult {
     let Some(k) = kind(&ctx.provider) else {
         return MediaResult::err(400, format!("Provider '{}' does not support image generation", ctx.provider));
@@ -576,7 +670,17 @@ async fn core(mut ctx: Ctx, body: Value, stream_to_client: bool, binary: bool) -
     let provider = ctx.provider.clone();
     let model = ctx.model.clone();
     let prompt = body["prompt"].clone();
-    let final_body: Value = if k == Kind::Antigravity {
+    let final_body: Value = if k == Kind::ComfyUi {
+        match comfy_generate(&ctx, &body).await {
+            Ok(v) => v,
+            Err(e) => return provider_err(502, &e),
+        }
+    } else if k == Kind::Topaz {
+        match topaz_enhance(&ctx, &body).await {
+            Ok(v) => v,
+            Err((st, e)) => return MediaResult::err(st, e),
+        }
+    } else if k == Kind::Antigravity {
         match antigravity_image(&mut ctx, &body).await {
             Ok(v) => gemini_normalize(&v, &prompt),
             Err(e) => return provider_err(502, &e),

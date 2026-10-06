@@ -26,6 +26,10 @@ pub async fn host_is_public(host: &str) -> bool {
     if h.is_empty() || h == "localhost" || h == "metadata.google.internal" {
         return false;
     }
+    #[cfg(test)]
+    if crate::exec::TEST_UPSTREAM.get().is_some() && h.ends_with(".example") {
+        return true;
+    }
     match tokio::net::lookup_host((h.as_str(), 443)).await {
         Ok(addrs) => {
             let v: Vec<_> = addrs.collect();

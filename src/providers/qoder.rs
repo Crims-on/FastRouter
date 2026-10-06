@@ -1183,8 +1183,10 @@ async fn wrap_sse(up: Upstream, model: String) -> Upstream {
                 lines.finish().into_iter().collect()
             }
         };
+        // Keep every line of this network chunk: only the first event is
+        // inspected, the rest are replayed after the peek.
+        consumed.extend(new_lines.iter().cloned());
         for l in new_lines {
-            consumed.push(l.clone());
             let t = l.trim_end_matches('\r').trim();
             let Some(data) = t.strip_prefix("data:") else { continue };
             let data = data.trim_start();

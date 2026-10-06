@@ -72,7 +72,14 @@ where
     Fut: Future<Output = MediaResult>,
 {
     if no_auth {
-        let r = run(Ctx { db: db.clone(), provider: provider.into(), model: model.into(), creds: json!({"providerSpecificData": {}}), connection_id: String::new() }).await;
+        // Local/keyless services still honour a configured connection (e.g. a
+        // custom base URL for SD WebUI, ComfyUI, Coqui or SearXNG).
+        let conn = db.connections_for(&accounts::provider_id(provider), true).into_iter().next();
+        let (creds, connection_id) = match conn {
+            Some(c) => (accounts::credentials_from_connection(&c), c["id"].as_str().unwrap_or("").to_string()),
+            None => (json!({"providerSpecificData": {}}), String::new()),
+        };
+        let r = run(Ctx { db: db.clone(), provider: provider.into(), model: model.into(), creds, connection_id }).await;
         return r.response;
     }
     let mut exclude: HashSet<String> = HashSet::new();

@@ -597,7 +597,7 @@ pub fn openai_to_gemini(model: &str, body: &Value, ctx: &Ctx) -> Value {
 
 pub fn openai_to_gemini_cli(model: &str, body: &Value, ctx: &Ctx) -> Value {
     let mut g = openai_to_gemini_base(model, body, sig_gemini_cli(), ctx.client_session_id.as_deref());
-    if let Some(fds) = g["tools"][0]["functionDeclarations"].as_array_mut() {
+    if let Some(fds) = g.get_mut("tools").and_then(|t| t.get_mut(0)).and_then(|t| t.get_mut("functionDeclarations")).and_then(Value::as_array_mut) {
         for f in fds {
             if truthy(&f["parameters"]) {
                 f["parameters"] = clean_json_schema(f["parameters"].take());

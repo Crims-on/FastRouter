@@ -227,7 +227,12 @@ impl Transformer {
         let mut output: Option<String> = None;
         let mut responses_terminal = false;
         if let Some(rest) = trimmed.strip_prefix("data:") {
-            if rest.trim() != "[DONE]" {
+            if rest.trim() == "[DONE]" {
+                if self.stream_done_sent {
+                    return;
+                }
+                self.stream_done_sent = true;
+            } else {
                 let Ok(mut p) = serde_json::from_str::<Value>(rest.trim()) else { return };
                 let id_fixed = fix_invalid_id(&mut p);
                 let mut injected = false;

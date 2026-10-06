@@ -866,7 +866,8 @@ async fn single(db: std::sync::Arc<crate::db::Db>, body: Value, input: String) -
         }
     }
     if e["noAuth"] == json!(true) || media_cfg(&pid, "searchConfig")["authType"] == "none" {
-        return search_core(&pid, &core_body, &json!({"providerSpecificData": {}})).await.response;
+        let creds = db.connections_for(&pid, true).first().map(accounts::credentials_from_connection).unwrap_or_else(|| json!({"providerSpecificData": {}}));
+        return search_core(&pid, &core_body, &creds).await.response;
     }
     // Credential lookup may borrow another provider's keys (credentialFallback).
     let lock = format!("websearch:{pid}");

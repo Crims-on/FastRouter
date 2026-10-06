@@ -428,10 +428,6 @@ fn every_media_kind_has_adapter() {
     let mut failures = vec![];
     for e in &REG.entries {
         let id = e["id"].as_str().unwrap();
-        // 9router lists Topaz (an upscaling API) without any request adapter.
-        if id == "topaz" {
-            continue;
-        }
         for k in crate::api::models::provider_kinds(id) {
             let ok = match k.as_str() {
                 "llm" | "imageToText" => true,
